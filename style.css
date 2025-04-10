@@ -210,3 +210,12 @@ td a:hover {
 .container {
   animation: fadeIn 0.5s ease-in;
 }
+
+.btn-export {
+  background-color: #8e24aa;
+  color: white;
+}
+
+.btn-export:hover {
+  background-color: #6a1b9a;
+}

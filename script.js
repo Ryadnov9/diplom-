@@ -105,6 +105,58 @@ function hasTeacherConflict(teacher, day, pair, schedule) {
   );
 }
 
+function generateSchedule() {
+  const lessonsPerWeek = parseInt(
+    document.getElementById("lessonsPerWeek").value
+  );
+  let generatedSchedule = [];
+
+  groups.forEach((group) => {
+    let groupSubjects = scheduleData.filter(
+      (entry) => entry.group === group.name
+    );
+
+    groupSubjects.forEach((subjectEntry) => {
+      let lessonsAdded = 0;
+
+      while (lessonsAdded < lessonsPerWeek) {
+        let dayIndex = Math.floor(Math.random() * daysOfWeek.length);
+        let pair = Math.floor(Math.random() * 6) + 1;
+
+        if (
+          !hasTeacherConflict(
+            subjectEntry.teacher,
+            dayIndex,
+            pair,
+            generatedSchedule
+          )
+        ) {
+          generatedSchedule.push({
+            subject: `${subjectEntry.subject} (${subjectEntry.type})`,
+            group: group.name,
+            teacher: subjectEntry.teacher,
+            day: dayIndex,
+            pair: pair,
+            link: subjectEntry.link,
+          });
+          lessonsAdded++;
+        }
+      }
+    });
+  });
+
+  document
+    .querySelectorAll(".hide-on-generate")
+    .forEach((el) => el.classList.add("hidden"));
+  document.body.classList.add("table-only");
+  document.getElementById("backButton").style.display = "block";
+  document.getElementById("clearTableButton").style.display = "block";
+  document.getElementById("exportButton").style.display = "block"; // Показуємо кнопку експорту
+
+  renderTable(generatedSchedule);
+  window.generatedSchedule = generatedSchedule; // Зберігаємо розклад у глобальній змінній для доступу в exportToCSV
+}
+
 function renderTable(generatedSchedule) {
   const table = document.getElementById("scheduleTable");
   table.innerHTML = "";
