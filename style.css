@@ -19,7 +19,7 @@ body {
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
   padding: 30px;
   overflow: hidden;
-  transition: padding 0.3s ease;
+  animation: fadeIn 0.5s ease-in;
 }
 
 header {
@@ -34,45 +34,8 @@ h1 {
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
 }
 
-header p {
-  font-size: 1.2em;
-  color: #555;
-}
-
-.form-section,
-.settings-section {
-  background: #f5f5f5;
-  padding: 20px;
-  border-radius: 10px;
-  margin-bottom: 30px;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
-}
-
-.input-group {
-  margin-bottom: 15px;
-}
-
-label {
-  display: block;
-  font-weight: bold;
-  color: #333;
-  margin-bottom: 5px;
-}
-
-input,
-select {
-  width: 100%;
-  padding: 12px;
-  border: 2px solid #ddd;
-  border-radius: 8px;
-  font-size: 1em;
-  transition: border-color 0.3s ease;
-}
-
-input:focus,
-select:focus {
-  border-color: #0277bd;
-  outline: none;
+.main-section {
+  text-align: center;
 }
 
 .btn {
@@ -84,20 +47,8 @@ select:focus {
   transition: transform 0.2s ease, background-color 0.3s ease;
 }
 
-.btn-add {
-  background-color: #4caf50;
-  color: white;
-}
-
 .btn-generate {
   background-color: #0277bd;
-  color: white;
-  display: block;
-  margin: 20px auto;
-}
-
-.btn-back {
-  background-color: #ff5722;
   color: white;
 }
 
@@ -106,24 +57,43 @@ select:focus {
   color: white;
 }
 
-.btn:hover {
-  transform: translateY(-2px);
+.btn-import {
+  background-color: #4caf50;
+  color: white;
 }
 
-.btn-add:hover {
-  background-color: #388e3c;
+.btn-export {
+  background-color: #9c27b0;
+  color: white;
+}
+
+.btn-back {
+  background-color: #ff5722;
+  color: white;
+}
+
+.btn:hover {
+  transform: translateY(-2px);
 }
 
 .btn-generate:hover {
   background-color: #01579b;
 }
 
-.btn-back:hover {
-  background-color: #e64a19;
-}
-
 .btn-clear:hover {
   background-color: #616161;
+}
+
+.btn-import:hover {
+  background-color: #388e3c;
+}
+
+.btn-export:hover {
+  background-color: #7b1fa2;
+}
+
+.btn-back:hover {
+  background-color: #e64a19;
 }
 
 .button-group {
@@ -133,25 +103,21 @@ select:focus {
   margin-bottom: 20px;
 }
 
-.table-section {
-  overflow-x: auto;
-  transition: margin 0.3s ease;
-}
-
 table {
   width: 100%;
   border-collapse: collapse;
   background: #fff;
   border-radius: 10px;
   overflow: hidden;
+  margin-top: 20px;
 }
 
 th,
 td {
   border: 1px solid #ddd;
-  padding: 12px;
+  padding: 8px; /* Зменшуємо відступи для компактності */
   text-align: center;
-  font-size: 0.9em;
+  font-size: 0.8em; /* Зменшуємо шрифт */
 }
 
 th {
@@ -162,12 +128,12 @@ th {
 
 td {
   background-color: #fafafa;
+  white-space: pre-wrap; /* Дозволяємо перенесення тексту */
 }
 
 td a {
   color: #0277bd;
   text-decoration: none;
-  font-weight: bold;
 }
 
 td a:hover {
@@ -183,20 +149,6 @@ td a:hover {
   min-width: 40px;
 }
 
-/* Стилі для приховування */
-.hide-on-generate.hidden {
-  display: none;
-}
-
-/* Стилі для таблиці після генерації */
-.table-only .container {
-  padding: 10px;
-}
-
-.table-only .table-section {
-  margin: 0;
-}
-
 /* Анімація появи */
 @keyframes fadeIn {
   from {
@@ -205,17 +157,4 @@ td a:hover {
   to {
     opacity: 1;
   }
-}
-
-.container {
-  animation: fadeIn 0.5s ease-in;
-}
-
-.btn-export {
-  background-color: #8e24aa;
-  color: white;
-}
-
-.btn-export:hover {
-  background-color: #6a1b9a;
 }

@@ -10,157 +10,150 @@ const groups = [
   { name: "12-461", subject: "126 Інформаційні системи та технології" },
 ];
 
-let scheduleData = [];
-
-document
-  .getElementById("scheduleForm")
-  .addEventListener("submit", function (e) {
-    e.preventDefault();
-
-    const subject = document.getElementById("subject").value;
-    const teacher = document.getElementById("teacher").value;
-    const group = document.getElementById("group").value;
-    const type = document.getElementById("type").value;
-    const link = document.getElementById("link").value || "";
-
-    scheduleData.push({ subject, teacher, group, type, link });
-
-    document.getElementById("scheduleForm").reset();
-  });
+// Глобальний масив для збереження імпортованих і розподілених даних
+let importedSchedule = [];
 
 document
   .getElementById("generateButton")
   .addEventListener("click", generateSchedule);
 
-document.getElementById("backButton").addEventListener("click", function () {
-  document
-    .querySelectorAll(".hide-on-generate")
-    .forEach((el) => el.classList.remove("hidden"));
-  document.body.classList.remove("table-only");
-  document.getElementById("backButton").style.display = "none";
-  document.getElementById("clearTableButton").style.display = "none";
-  document.getElementById("scheduleTable").innerHTML = ""; // Очищуємо таблицю при поверненні
+document
+  .getElementById("clearTableButton")
+  .addEventListener("click", clearTable);
+
+document.getElementById("backButton").addEventListener("click", backToGenerate);
+
+document.getElementById("importButton").addEventListener("click", () => {
+  document.getElementById("fileInput").click();
 });
 
 document
-  .getElementById("clearTableButton")
-  .addEventListener("click", function () {
-    document.getElementById("scheduleTable").innerHTML = ""; // Очищуємо таблицю
-  });
+  .getElementById("fileInput")
+  .addEventListener("change", handleFileImport);
 
-function generateSchedule() {
-  const lessonsPerWeek = parseInt(
-    document.getElementById("lessonsPerWeek").value
-  );
-  let generatedSchedule = [];
+function handleFileImport(event) {
+  const file = event.target.files[0];
+  if (!file) return;
 
-  groups.forEach((group) => {
-    let groupSubjects = scheduleData.filter(
-      (entry) => entry.group === group.name
-    );
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    const text = e.target.result;
+    try {
+      // Парсимо CSV
+      const rows = text
+        .split("\n")
+        .map((row) => row.trim())
+        .filter((row) => row);
+      importedSchedule = [];
 
-    groupSubjects.forEach((subjectEntry) => {
-      let lessonsAdded = 0;
+      // Перевіряємо заголовок
+      const headers = rows[0].split(",").map((header) => header.trim());
+      if (
+        headers[0] !== "group" ||
+        headers[1] !== "subject" ||
+        headers[2] !== "teacher" ||
+        headers[3] !== "type" ||
+        headers[4] !== "link" ||
+        headers[5] !== "weeklyCount"
+      ) {
+        alert(
+          "Неправильний формат CSV. Очікується: group,subject,teacher,type,link,weeklyCount"
+        );
+        return;
+      }
 
-      while (lessonsAdded < lessonsPerWeek) {
-        let dayIndex = Math.floor(Math.random() * daysOfWeek.length);
-        let pair = Math.floor(Math.random() * 6) + 1;
-
-        if (
-          !hasTeacherConflict(
-            subjectEntry.teacher,
-            dayIndex,
-            pair,
-            generatedSchedule
-          )
-        ) {
-          generatedSchedule.push({
-            subject: `${subjectEntry.subject} (${subjectEntry.type})`,
-            group: group.name,
-            teacher: subjectEntry.teacher,
-            day: dayIndex,
-            pair: pair,
-            link: subjectEntry.link,
-          });
-          lessonsAdded++;
+      // Обробляємо рядки даних
+      for (let i = 1; i < rows.length; i++) {
+        const [group, subject, teacher, type, link, weeklyCount] = rows[i]
+          .split(",")
+          .map((item) => item.trim());
+        if (group && subject && teacher && type && link && weeklyCount) {
+          const weeklyCountNum = parseInt(weeklyCount);
+          const validTypes = ["лекція", "лабораторія", "практика"];
+          if (
+            groups.some((g) => g.name === group) &&
+            validTypes.includes(type) &&
+            !isNaN(weeklyCountNum) &&
+            weeklyCountNum > 0 &&
+            weeklyCountNum <= 5 // Обмежуємо до 5 днів
+          ) {
+            // Рандомно розподіляємо заняття
+            const assignedSlots = [];
+            const availableDays = [0, 1, 2, 3, 4]; // 5 днів тижня
+            for (let j = 0; j < weeklyCountNum; j++) {
+              const randomDayIndex = Math.floor(
+                Math.random() * availableDays.length
+              );
+              const day = availableDays.splice(randomDayIndex, 1)[0]; // Вибираємо і видаляємо день
+              const pair = Math.floor(Math.random() * 6) + 1; // Рандомна пара 1–6
+              assignedSlots.push({
+                group,
+                subject,
+                teacher,
+                type,
+                link,
+                day,
+                pair,
+              });
+            }
+            importedSchedule.push(...assignedSlots);
+          }
         }
       }
-    });
-  });
 
-  document
-    .querySelectorAll(".hide-on-generate")
-    .forEach((el) => el.classList.add("hidden"));
-  document.body.classList.add("table-only");
-  document.getElementById("backButton").style.display = "block";
-  document.getElementById("clearTableButton").style.display = "block"; // Показуємо кнопку очищення
+      if (importedSchedule.length === 0) {
+        alert("Не знайдено валідних даних у файлі.");
+        return;
+      }
 
-  renderTable(generatedSchedule);
-}
+      // Автоматично генеруємо таблицю
+      generateSchedule();
 
-function hasTeacherConflict(teacher, day, pair, schedule) {
-  return schedule.some(
-    (entry) =>
-      entry.teacher === teacher && entry.day === day && entry.pair === pair
-  );
+      // Очищуємо input
+      event.target.value = "";
+    } catch (error) {
+      alert("Помилка при обробці файлу: " + error.message);
+    }
+  };
+  reader.readAsText(file);
 }
 
 function generateSchedule() {
-  const lessonsPerWeek = parseInt(
-    document.getElementById("lessonsPerWeek").value
-  );
-  let generatedSchedule = [];
+  const table = document.getElementById("scheduleTable");
+  table.style.display = "table";
+  document.getElementById("generateButton").style.display = "none";
+  document.getElementById("importButton").style.display = "none";
+  document.getElementById("clearTableButton").style.display = "inline-block";
+  document.getElementById("exportButton").style.display = "inline-block";
+  document.getElementById("backButton").style.display = "inline-block";
+  renderTable(importedSchedule);
+}
 
-  groups.forEach((group) => {
-    let groupSubjects = scheduleData.filter(
-      (entry) => entry.group === group.name
-    );
+function clearTable() {
+  const table = document.getElementById("scheduleTable");
+  table.style.display = "none";
+  table.innerHTML = "";
+  document.getElementById("clearTableButton").style.display = "inline-block";
+  document.getElementById("exportButton").style.display = "none";
+  document.getElementById("backButton").style.display = "inline-block";
+}
 
-    groupSubjects.forEach((subjectEntry) => {
-      let lessonsAdded = 0;
-
-      while (lessonsAdded < lessonsPerWeek) {
-        let dayIndex = Math.floor(Math.random() * daysOfWeek.length);
-        let pair = Math.floor(Math.random() * 6) + 1;
-
-        if (
-          !hasTeacherConflict(
-            subjectEntry.teacher,
-            dayIndex,
-            pair,
-            generatedSchedule
-          )
-        ) {
-          generatedSchedule.push({
-            subject: `${subjectEntry.subject} (${subjectEntry.type})`,
-            group: group.name,
-            teacher: subjectEntry.teacher,
-            day: dayIndex,
-            pair: pair,
-            link: subjectEntry.link,
-          });
-          lessonsAdded++;
-        }
-      }
-    });
-  });
-
-  document
-    .querySelectorAll(".hide-on-generate")
-    .forEach((el) => el.classList.add("hidden"));
-  document.body.classList.add("table-only");
-  document.getElementById("backButton").style.display = "block";
-  document.getElementById("clearTableButton").style.display = "block";
-  document.getElementById("exportButton").style.display = "block"; // Показуємо кнопку експорту
-
-  renderTable(generatedSchedule);
-  window.generatedSchedule = generatedSchedule; // Зберігаємо розклад у глобальній змінній для доступу в exportToCSV
+function backToGenerate() {
+  const table = document.getElementById("scheduleTable");
+  table.style.display = "none";
+  table.innerHTML = "";
+  document.getElementById("generateButton").style.display = "inline-block";
+  document.getElementById("importButton").style.display = "inline-block";
+  document.getElementById("clearTableButton").style.display = "none";
+  document.getElementById("exportButton").style.display = "none";
+  document.getElementById("backButton").style.display = "none";
 }
 
 function renderTable(generatedSchedule) {
   const table = document.getElementById("scheduleTable");
   table.innerHTML = "";
 
+  // Рядок із заголовками спеціальностей
   const subjectRow = document.createElement("tr");
   subjectRow.innerHTML = `
     <th rowspan="2" class="day-column">Дні тижня</th>
@@ -169,10 +162,12 @@ function renderTable(generatedSchedule) {
   `;
   table.appendChild(subjectRow);
 
+  // Рядок із номерами груп
   const groupRow = document.createElement("tr");
   groupRow.innerHTML = groups.map((group) => `<th>${group.name}</th>`).join("");
   table.appendChild(groupRow);
 
+  // Заповнення таблиці
   daysOfWeek.forEach((day, dayIndex) => {
     for (let pair = 1; pair <= 6; pair++) {
       const row = document.createElement("tr");
@@ -185,21 +180,14 @@ function renderTable(generatedSchedule) {
 
       row.innerHTML += groups
         .map((group) => {
-          const subjectEntry = generatedSchedule.find(
-            (entry) =>
-              entry.group === group.name &&
-              entry.day === dayIndex &&
-              entry.pair === pair
+          const entry = generatedSchedule.find(
+            (e) =>
+              e.group === group.name && e.day === dayIndex && e.pair === pair
           );
-          return `<td>${
-            subjectEntry
-              ? `${subjectEntry.subject}<br>${subjectEntry.teacher}${
-                  subjectEntry.link
-                    ? `<br><a href="${subjectEntry.link}" target="_blank">Посилання</a>`
-                    : ""
-                }`
-              : ""
-          }</td>`;
+          if (entry) {
+            return `<td>${entry.subject}\n${entry.teacher}\n${entry.type}\n<a href="${entry.link}" target="_blank">Посилання</a></td>`;
+          }
+          return `<td></td>`;
         })
         .join("");
 
