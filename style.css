@@ -115,9 +115,9 @@ table {
 th,
 td {
   border: 1px solid #ddd;
-  padding: 8px; /* Зменшуємо відступи для компактності */
+  padding: 8px;
   text-align: center;
-  font-size: 0.8em; /* Зменшуємо шрифт */
+  font-size: 0.8em;
 }
 
 th {
@@ -128,7 +128,7 @@ th {
 
 td {
   background-color: #fafafa;
-  white-space: pre-wrap; /* Дозволяємо перенесення тексту */
+  white-space: pre-wrap;
 }
 
 td a {
