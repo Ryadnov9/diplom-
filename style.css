@@ -184,6 +184,66 @@ td a:hover {
   z-index: 1;
 }
 
+/*Search*/
+
+.search-results {
+  display: none;
+  position: fixed;
+  top: 70px; /* Встановлюємо відступ від верхньої частини сторінки, щоб не перекривати рядок пошуку */
+  left: 50%;
+  transform: translateX(-50%); /* Центруємо по горизонталі */
+  background-color: white;
+  border: 2px solid #ccc;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  max-width: 600px;
+  width: 90%;
+  max-height: calc(
+    80vh - 100px
+  ); /* Обмежуємо висоту, враховуючи відступ від верху */
+  overflow-y: auto; /* Додаємо прокрутку */
+  padding: 20px;
+  border-radius: 8px;
+}
+
+.search-results-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.search-results-header h3 {
+  margin: 0;
+  font-size: 1.2em;
+}
+
+#closeResultsButton {
+  background: none;
+  border: none;
+  font-size: 1.2em;
+  cursor: pointer;
+  color: #888;
+}
+
+#closeResultsButton:hover {
+  color: #000;
+}
+
+#searchResultsContent p {
+  margin: 10px 0;
+  padding: 10px;
+  background-color: #f9f9f9;
+  border-left: 4px solid #4caf50;
+  border-radius: 4px;
+}
+
+/* Додамо стиль для рядка пошуку */
+.search-bar {
+  position: relative;
+  z-index: 1001; /* Забезпечимо, що рядок пошуку буде над спливаючим вікном */
+  margin-bottom: 10px;
+}
 /* Анітація появи */
 @keyframes fadeIn {
   from {
