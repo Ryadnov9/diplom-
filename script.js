@@ -253,7 +253,9 @@ function generateSchedule() {
   }
 
   const table = document.getElementById("scheduleTable");
+  const searchBar = document.querySelector(".search-bar");
   table.style.display = "table";
+  searchBar.style.display = "block"; // Показуємо рядок пошуку
   document.getElementById("generateButton").style.display = "none";
   document.getElementById("importButton").style.display = "none";
   document.getElementById("clearTableButton").style.display = "inline-block";
@@ -264,7 +266,9 @@ function generateSchedule() {
 
 function clearTable() {
   const table = document.getElementById("scheduleTable");
+  const searchBar = document.querySelector(".search-bar");
   table.style.display = "table"; // Залишаємо таблицю видимою
+  searchBar.style.display = "none"; // Приховуємо рядок пошуку
 
   // Очищаємо лише вміст розкладу, зберігаючи структуру
   const subjectRow = table.children[0]; // Перший рядок із заголовками спеціальностей
@@ -299,8 +303,10 @@ function clearTable() {
 
 function backToGenerate() {
   const table = document.getElementById("scheduleTable");
+  const searchBar = document.querySelector(".search-bar");
   table.style.display = "none";
   table.innerHTML = "";
+  searchBar.style.display = "none"; // Приховуємо рядок пошуку
   document.getElementById("generateButton").style.display = "inline-block";
   document.getElementById("importButton").style.display = "inline-block";
   document.getElementById("clearTableButton").style.display = "none";
@@ -354,3 +360,50 @@ function renderTable(generatedSchedule) {
     }
   });
 }
+
+// Логіка пошуку
+document.getElementById("searchInput").addEventListener("input", () => {
+  const searchText = document
+    .getElementById("searchInput")
+    .value.toLowerCase()
+    .trim();
+  const table = document.getElementById("scheduleTable");
+  const rows = table.getElementsByTagName("tr");
+
+  if (!searchText) {
+    // Якщо текст пошуку порожній, показуємо всі рядки
+    for (let i = 2; i < rows.length; i++) {
+      rows[i].style.display = "";
+    }
+    return;
+  }
+
+  // Перевіряємо кожен блок із 6 рядків (один день)
+  for (let i = 2; i < rows.length; i += 6) {
+    const dayRows = [];
+    for (let j = 0; j < 6 && i + j < rows.length; j++) {
+      dayRows.push(rows[i + j]);
+    }
+
+    let dayMatches = false;
+    const dayIndex = Math.floor((i - 2) / 6);
+
+    // Шукаємо викладача в кожній групі для цього дня
+    dayRows.forEach((row) => {
+      const cells = row.getElementsByTagName("td");
+      for (let j = 2; j < cells.length; j++) {
+        const cellText = cells[j].textContent.toLowerCase();
+        const teacherMatch = cellText.split("\n")[1]; // Беремо другий рядок (викладача)
+        if (teacherMatch && teacherMatch.includes(searchText)) {
+          dayMatches = true;
+          break;
+        }
+      }
+    });
+
+    // Показуємо або приховуємо весь блок дня
+    dayRows.forEach((row) => {
+      row.style.display = dayMatches ? "" : "none";
+    });
+  }
+});
