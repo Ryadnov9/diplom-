@@ -1,8 +1,9 @@
 const daysOfWeek = ["Понеділок", "Вівторок", "Середа", "Четвер", "П’ятниця"];
 
-// Глобальні масиви для збереження груп і розкладу
+// Глобальні масиви для збереження груп, розкладу та обмежень викладачів
 let groups = [];
 let importedSchedule = [];
+let teacherRestrictions = [];
 
 document
   .getElementById("generateButton")
@@ -22,6 +23,107 @@ document
   .getElementById("fileInput")
   .addEventListener("change", handleFileImport);
 
+// Функція для перевірки, чи слот (день + пара) вільний для викладача
+function isTeacherSlotFree(teacher, day, pair, schedule) {
+  return !schedule.some(
+    (entry) =>
+      entry.teacher === teacher && entry.day === day && entry.pair === pair
+  );
+}
+
+// Функція для пошуку вільного слота для викладача
+function findFreeSlot(
+  teacher,
+  allowedPairs,
+  preferredDays,
+  allDays,
+  weeklyCount,
+  schedule,
+  mustBeSequential = false
+) {
+  let availableDays = [...preferredDays];
+  if (availableDays.length === 0) {
+    availableDays = [...allDays];
+  }
+
+  let slots = [];
+  let attempts = 0;
+  const maxAttempts = 100; // Щоб уникнути нескінченного циклу
+
+  while (slots.length < weeklyCount && attempts < maxAttempts) {
+    attempts++;
+
+    if (availableDays.length === 0) {
+      return null; // Немає доступних днів
+    }
+
+    const dayIndex = Math.floor(Math.random() * availableDays.length);
+    const day = availableDays[dayIndex];
+    let availablePairs = [...allowedPairs];
+
+    if (availablePairs.length === 0) {
+      availableDays.splice(dayIndex, 1); // Видаляємо день, якщо немає доступних пар
+      continue;
+    }
+
+    if (mustBeSequential && weeklyCount > 1) {
+      // Для лекцій: шукаємо послідовні пари
+      let startPairIndex = Math.floor(
+        Math.random() * (availablePairs.length - weeklyCount + 1)
+      );
+      let startPair = availablePairs[startPairIndex];
+      let sequentialPairs = [];
+      for (let j = 0; j < weeklyCount; j++) {
+        const pair = startPair + j;
+        if (pair > 6 || !allowedPairs.includes(pair)) {
+          sequentialPairs = [];
+          break;
+        }
+        if (isTeacherSlotFree(teacher, day, pair, schedule)) {
+          sequentialPairs.push({ day, pair });
+        } else {
+          sequentialPairs = [];
+          break;
+        }
+      }
+      if (sequentialPairs.length === weeklyCount) {
+        slots.push(...sequentialPairs);
+        break; // Знайшли послідовні слоти
+      } else {
+        // Якщо не вдалося знайти послідовні слоти, видаляємо день і пробуємо інший
+        availableDays.splice(dayIndex, 1);
+        continue;
+      }
+    } else {
+      // Для практик/лабораторних або weeklyCount === 1: шукаємо один слот
+      const pairIndex = Math.floor(Math.random() * availablePairs.length);
+      const pair = availablePairs[pairIndex];
+      if (isTeacherSlotFree(teacher, day, pair, schedule)) {
+        slots.push({ day, pair });
+        availablePairs.splice(pairIndex, 1); // Видаляємо пару, щоб не використовувати її повторно
+      } else {
+        availablePairs.splice(pairIndex, 1); // Видаляємо пару і пробуємо іншу
+        if (availablePairs.length === 0) {
+          availableDays.splice(dayIndex, 1); // Якщо пар немає, видаляємо день
+        }
+        continue;
+      }
+    }
+
+    // Якщо зібрали достатньо слотів, виходимо
+    if (slots.length === weeklyCount) break;
+
+    // Якщо не вдалося знайти слот у цьому дні, видаляємо день і пробуємо інший
+    availableDays.splice(dayIndex, 1);
+  }
+
+  if (slots.length < weeklyCount) {
+    return null; // Не вдалося знайти достатньо слотів
+  }
+
+  return slots;
+}
+
 function handleFileImport(event) {
   const file = event.target.files[0];
   if (!file) return;
@@ -35,22 +137,71 @@ function handleFileImport(event) {
         .map((row) => row.trim())
         .filter((row) => row);
       importedSchedule = [];
-      groups = []; // Очищаємо масив груп
+      groups = [];
+      teacherRestrictions = []; // Очищаємо масив обмежень викладачів
 
       // Зчитуємо перший рядок, щоб перевірити формат
       const headers = rows[0].split(",").map((header) => header.trim());
       let isGroupSection = headers[0] === "group_info" && headers.length === 3;
       let isLessonSection = headers[0] === "group" && headers.length === 6;
+      let isTeacherRestrictionSection =
+        headers[0] === "teacher_restrictions" && headers.length >= 4;
 
-      if (!isGroupSection && !isLessonSection) {
+      if (!isGroupSection && !isLessonSection && !isTeacherRestrictionSection) {
         alert(
-          "Неправильний формат CSV. Очікується: group_info,group,subject для груп або group,subject,teacher,type,link,weeklyCount для занять"
+          "Неправильний формат CSV. Очікується: group_info,group,subject для груп, group,subject,teacher,type,link,weeklyCount для занять або teacher_restrictions,teacher,allowed_pairs,preferred_days для обмежень викладачів"
         );
         return;
       }
 
-      // Зчитуємо групи з CSV
       let i = 1;
+
+      // Зчитуємо обмеження викладачів
+      while (i < rows.length && rows[i].startsWith("teacher_restrictions")) {
+        const fields = rows[i].split(",").map((item) => item.trim());
+        if (fields.length < 4) {
+          console.error(
+            `Рядок ${i + 1} має неправильну кількість полів (${
+              fields.length
+            } замість 4 або більше):`,
+            rows[i]
+          );
+          i++;
+          continue;
+        }
+        const [, teacher, allowedPairs, ...preferredDays] = fields;
+        if (teacher && allowedPairs && preferredDays.length > 0) {
+          // Парсимо дозволені пари
+          let pairs = [];
+          if (allowedPairs.includes("-")) {
+            const [start, end] = allowedPairs.split("-").map(Number);
+            for (let p = start; p <= end; p++) {
+              pairs.push(p);
+            }
+          } else {
+            pairs = allowedPairs
+              .split(" ")
+              .map(Number)
+              .filter((p) => !isNaN(p) && p >= 1 && p <= 6);
+          }
+
+          // Перевіряємо, чи є бажані дні валідними
+          const validPreferredDays = preferredDays
+            .filter((day) => daysOfWeek.includes(day))
+            .map((day) => daysOfWeek.indexOf(day));
+
+          if (pairs.length > 0 && validPreferredDays.length > 0) {
+            teacherRestrictions.push({
+              teacher,
+              allowedPairs: pairs,
+              preferredDays: validPreferredDays,
+            });
+          }
+        }
+        i++;
+      }
+
+      // Зчитуємо групи з CSV
       while (i < rows.length && rows[i].startsWith("group_info")) {
         const fields = rows[i].split(",").map((item) => item.trim());
         if (fields.length !== 3) {
@@ -130,75 +281,42 @@ function handleFileImport(event) {
         const firstLesson = lessons[0];
         const weeklyCountNum = firstLesson.weeklyCount;
 
+        // Отримуємо обмеження для викладача
+        const teacherRestriction = teacherRestrictions.find(
+          (tr) => tr.teacher === firstLesson.teacher
+        );
+        let allowedPairs = teacherRestriction
+          ? teacherRestriction.allowedPairs
+          : [1, 2, 3, 4, 5, 6];
+        let preferredDays = teacherRestriction
+          ? teacherRestriction.preferredDays
+          : [0, 1, 2, 3, 4];
+        const allDays = [0, 1, 2, 3, 4];
+
         // Якщо кілька груп мають однаковий предмет, викладача і тип
         if (lessons.length > 1) {
           const assignedSlots = [];
 
-          // Якщо weeklyCount > 1
-          if (weeklyCountNum > 1) {
-            const availableDays = [0, 1, 2, 3, 4];
-            const day =
-              availableDays[Math.floor(Math.random() * availableDays.length)]; // Вибираємо один день
+          // Знаходимо вільні слоти для викладача
+          const slots = findFreeSlot(
+            firstLesson.teacher,
+            allowedPairs,
+            preferredDays,
+            allDays,
+            weeklyCountNum,
+            importedSchedule,
+            lessons.every((lesson) => lesson.type === "лекція") // Лекції розміщуємо послідовно
+          );
 
-            // Якщо це лекція і предмет/викладач однакові, розміщуємо послідовно
-            if (lessons.every((lesson) => lesson.type === "лекція")) {
-              const availablePairs = [1, 2, 3, 4, 5, 6];
-              const startPair =
-                availablePairs[
-                  Math.floor(
-                    Math.random() * (availablePairs.length - weeklyCountNum + 1)
-                  )
-                ]; // Вибираємо початкову пару
-              for (let j = 0; j < weeklyCountNum; j++) {
-                const pair = startPair + j; // Послідовні пари
-                if (pair > 6) break; // Якщо пари закінчилися, припиняємо
-                lessons.forEach((lesson) => {
-                  assignedSlots.push({
-                    group: lesson.group,
-                    subject: lesson.subject,
-                    teacher: lesson.teacher,
-                    type: lesson.type,
-                    link: lesson.link,
-                    day,
-                    pair,
-                  });
-                });
-              }
-            } else {
-              // Для інших типів (лабораторна, практика) розміщуємо в один день, але компактно
-              const availablePairs = [1, 2, 3, 4, 5, 6];
-              const startPair =
-                availablePairs[
-                  Math.floor(
-                    Math.random() * (availablePairs.length - weeklyCountNum + 1)
-                  )
-                ]; // Вибираємо початкову пару
-              const compactPairs = [];
-              for (let j = 0; j < weeklyCountNum; j++) {
-                compactPairs.push(startPair + j); // Компактні пари
-              }
-              for (let j = 0; j < weeklyCountNum; j++) {
-                const pair = compactPairs[j];
-                if (pair > 6) break; // Якщо пари закінчилися, припиняємо
-                lessons.forEach((lesson) => {
-                  assignedSlots.push({
-                    group: lesson.group,
-                    subject: lesson.subject,
-                    teacher: lesson.teacher,
-                    type: lesson.type,
-                    link: lesson.link,
-                    day,
-                    pair,
-                  });
-                });
-              }
-            }
-          } else {
-            // Якщо weeklyCount === 1, розміщуємо в один день на одній парі
-            const availableDays = [0, 1, 2, 3, 4];
-            const day =
-              availableDays[Math.floor(Math.random() * availableDays.length)];
-            const pair = Math.floor(Math.random() * 6) + 1;
+          if (!slots) {
+            console.warn(
+              `Не вдалося знайти вільні слоти для викладача ${firstLesson.teacher}`
+            );
+            continue;
+          }
+
+          // Розміщуємо заняття для всіх груп у знайдені слоти
+          slots.forEach((slot, index) => {
             lessons.forEach((lesson) => {
               assignedSlots.push({
                 group: lesson.group,
@@ -206,32 +324,47 @@ function handleFileImport(event) {
                 teacher: lesson.teacher,
                 type: lesson.type,
                 link: lesson.link,
-                day,
-                pair,
+                day: slot.day,
+                pair: slot.pair,
               });
             });
-          }
+          });
+
           importedSchedule.push(...assignedSlots);
         } else {
           // Якщо предмет унікальний для однієї групи
           const assignedSlots = [];
-          const availableDays = [0, 1, 2, 3, 4];
-          for (let j = 0; j < weeklyCountNum; j++) {
-            const randomDayIndex = Math.floor(
-              Math.random() * availableDays.length
+
+          // Знаходимо вільні слоти для викладача
+          const slots = findFreeSlot(
+            firstLesson.teacher,
+            allowedPairs,
+            preferredDays,
+            allDays,
+            weeklyCountNum,
+            importedSchedule,
+            firstLesson.type === "лекція" // Лекції розміщуємо послідовно
+          );
+
+          if (!slots) {
+            console.warn(
+              `Не вдалося знайти вільні слоти для викладача ${firstLesson.teacher}`
             );
-            const day = availableDays.splice(randomDayIndex, 1)[0];
-            const pair = Math.floor(Math.random() * 6) + 1;
+            continue;
+          }
+
+          slots.forEach((slot) => {
             assignedSlots.push({
               group: firstLesson.group,
               subject: firstLesson.subject,
               teacher: firstLesson.teacher,
               type: firstLesson.type,
               link: firstLesson.link,
-              day,
-              pair,
+              day: slot.day,
+              pair: slot.pair,
             });
-          }
+          });
+
           importedSchedule.push(...assignedSlots);
         }
       }
