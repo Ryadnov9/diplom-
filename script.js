@@ -39,15 +39,12 @@ function handleFileImport(event) {
 
       // Зчитуємо перший рядок, щоб перевірити формат
       const headers = rows[0].split(",").map((header) => header.trim());
+      let isGroupSection = headers[0] === "group_info" && headers.length === 3;
+      let isLessonSection = headers[0] === "group" && headers.length === 6;
 
-      // Перевіряємо формат для груп
-      if (
-        headers[0] !== "group_info" ||
-        headers[1] !== "group" ||
-        headers[2] !== "subject"
-      ) {
+      if (!isGroupSection && !isLessonSection) {
         alert(
-          "Неправильний формат CSV. Очікується: group_info,group,subject для груп, а потім group,subject,teacher,type,link,weeklyCount для занять"
+          "Неправильний формат CSV. Очікується: group_info,group,subject для груп або group,subject,teacher,type,link,weeklyCount для занять"
         );
         return;
       }
@@ -55,50 +52,52 @@ function handleFileImport(event) {
       // Зчитуємо групи з CSV
       let i = 1;
       while (i < rows.length && rows[i].startsWith("group_info")) {
-        const [, group, subject] = rows[i]
-          .split(",")
-          .map((item) => item.trim());
+        const fields = rows[i].split(",").map((item) => item.trim());
+        if (fields.length !== 3) {
+          console.error(
+            `Рядок ${i + 1} має неправильну кількість полів (${
+              fields.length
+            } замість 3):`,
+            rows[i]
+          );
+          i++;
+          continue;
+        }
+        const [, group, subject] = fields;
         if (group && subject) {
           groups.push({ name: group, subject });
         }
         i++;
       }
 
-      // Дебагінг: перевіряємо, чи є група 12-411 у масиві groups
-      console.log("Список груп:", groups);
-
-      if (groups.length === 0) {
-        alert("Не знайдено інформації про групи у файлі.");
-        return;
-      }
-
-      // Перевіряємо формат для занять
-      if (i >= rows.length) {
-        alert("Не знайдено даних про заняття у файлі.");
-        return;
-      }
-
-      const lessonHeaders = rows[i].split(",").map((header) => header.trim());
-      if (
-        lessonHeaders[0] !== "group" ||
-        lessonHeaders[1] !== "subject" ||
-        lessonHeaders[2] !== "teacher" ||
-        lessonHeaders[3] !== "type" ||
-        lessonHeaders[4] !== "link" ||
-        lessonHeaders[5] !== "weeklyCount"
-      ) {
-        alert(
-          "Неправильний формат CSV для занять. Очікується: group,subject,teacher,type,link,weeklyCount"
-        );
-        return;
+      // Перевіряємо, чи перейшли до секції занять
+      if (i < rows.length) {
+        const lessonHeaders = rows[i].split(",").map((header) => header.trim());
+        isLessonSection =
+          lessonHeaders[0] === "group" && lessonHeaders.length === 6;
+        if (!isLessonSection) {
+          alert(
+            "Неправильний формат CSV для занять. Очікується: group,subject,teacher,type,link,weeklyCount"
+          );
+          return;
+        }
+        i++;
       }
 
       // Групуємо заняття за предметом, викладачем і типом
       const lessonsByKey = {};
-      for (let j = i + 1; j < rows.length; j++) {
-        const [group, subject, teacher, type, link, weeklyCount] = rows[j]
-          .split(",")
-          .map((item) => item.trim());
+      for (; i < rows.length; i++) {
+        const fields = rows[i].split(",").map((item) => item.trim());
+        if (fields.length !== 6) {
+          console.error(
+            `Рядок ${i + 1} має неправильну кількість полів (${
+              fields.length
+            } замість 6):`,
+            rows[i]
+          );
+          continue;
+        }
+        const [group, subject, teacher, type, link, weeklyCount] = fields;
         if (group && subject && teacher && type && link && weeklyCount) {
           const weeklyCountNum = parseInt(weeklyCount);
           const validTypes = ["лекція", "лабораторна", "практика"];
@@ -121,18 +120,6 @@ function handleFileImport(event) {
               link,
               weeklyCount: weeklyCountNum,
             });
-
-            // Дебагінг: перевіряємо, чи є "Волошинов" серед викладачів
-            if (teacher.toLowerCase().includes("волошинов")) {
-              console.log(`Знайдено викладача "Волошинов" у рядку:`, {
-                group,
-                subject,
-                teacher,
-                type,
-                link,
-                weeklyCount,
-              });
-            }
           }
         }
       }
@@ -249,14 +236,14 @@ function handleFileImport(event) {
         }
       }
 
-      // Дебагінг: перевіряємо, чи є записи з "Волошинов" у importedSchedule
+      // Дебагінг: перевіряємо, чи є записи для групи 12-411 у importedSchedule
       console.log("Розклад (importedSchedule):", importedSchedule);
-      const hasVoloshinov = importedSchedule.some((entry) =>
-        entry.teacher.toLowerCase().includes("волошинов")
+      const hasGroup411Schedule = importedSchedule.some(
+        (entry) => entry.group === "12-411"
       );
       console.log(
-        "Чи є записи з викладачем Волошинов у розкладі:",
-        hasVoloshinov
+        "Чи є записи для групи 12-411 у розкладі:",
+        hasGroup411Schedule
       );
 
       if (importedSchedule.length === 0) {
@@ -374,42 +361,81 @@ function renderTable(generatedSchedule) {
       row.innerHTML += `<td>${pair}</td>`;
 
       row.innerHTML += groups
-        .map((group) => {
+        .map((group, groupIndex) => {
           const entry = generatedSchedule.find(
             (e) =>
               e.group === group.name && e.day === dayIndex && e.pair === pair
           );
 
+          // Дебагінг: перевіряємо, чи є запис для першої групи
+          if (groupIndex === 0 && entry) {
+            console.log(
+              `Знайдено запис для першої групи (${group.name}): День ${day}, Пара ${pair}, Дані:`,
+              entry
+            );
+          } else if (groupIndex === 0 && !entry) {
+            console.log(
+              `Запис для першої групи (${group.name}) не знайдено: День ${day}, Пара ${pair}`
+            );
+          }
+
           const td = document.createElement("td");
           if (entry) {
             const subjectSpan = document.createElement("span");
-            subjectSpan.textContent = entry.subject;
+            subjectSpan.textContent = entry.subject || "Немає предмета";
             td.appendChild(subjectSpan);
 
             const teacherSpan = document.createElement("span");
-            teacherSpan.textContent = entry.teacher;
+            teacherSpan.textContent = entry.teacher || "Немає викладача";
             td.appendChild(document.createElement("br"));
             td.appendChild(teacherSpan);
 
             const typeSpan = document.createElement("span");
-            typeSpan.textContent = entry.type;
+            typeSpan.textContent = entry.type || "Немає типу";
             td.appendChild(document.createElement("br"));
             td.appendChild(typeSpan);
 
-            const linkElement = document.createElement("a");
-            linkElement.href = entry.link;
-            linkElement.target = "_blank";
-            linkElement.textContent = "Посилання";
-            td.appendChild(document.createElement("br"));
-            td.appendChild(linkElement);
-
-            // Дебагінг: перевіряємо, чи є "Волошинов" у викладачі
-            if (entry.teacher.toLowerCase().includes("волошинов")) {
-              console.log(
-                `Знайдено "Волошинов" у таблиці: Група ${group.name}, День ${day}, Пара ${pair}, Дані:`,
-                entry
-              );
+            // Перевіряємо, чи link є валідним URL
+            const isValidUrl =
+              entry.link &&
+              (entry.link.startsWith("http://") ||
+                entry.link.startsWith("https://"));
+            if (isValidUrl) {
+              const linkElement = document.createElement("a");
+              linkElement.href = entry.link || "#";
+              linkElement.target = "_blank";
+              linkElement.textContent = "Посилання";
+              td.appendChild(document.createElement("br"));
+              td.appendChild(linkElement);
+            } else if (entry.link) {
+              // Витягуємо код і пароль із формату "код: [код] пароль: [пароль]"
+              const codeMatch = entry.link.match(/код:\s*(\S+)/i);
+              const passwordMatch = entry.link.match(/пароль:\s*(\S+)/i);
+              if (codeMatch && passwordMatch) {
+                const code = codeMatch[1].trim();
+                const password = passwordMatch[1].trim();
+                const codeSpan = document.createElement("span");
+                codeSpan.textContent = `Код: ${code}`;
+                td.appendChild(document.createElement("br"));
+                td.appendChild(codeSpan);
+                const passwordSpan = document.createElement("span");
+                passwordSpan.textContent = `Пароль: ${password}`;
+                td.appendChild(document.createElement("br"));
+                td.appendChild(passwordSpan);
+              } else if (codeMatch) {
+                const code = codeMatch[1].trim();
+                const codeSpan = document.createElement("span");
+                codeSpan.textContent = `Код: ${code}`;
+                td.appendChild(document.createElement("br"));
+                td.appendChild(codeSpan);
+              }
             }
+
+            // Дебагінг: перевіряємо вміст клітинки
+            console.log(
+              `Клітинка для групи ${group.name}, День ${day}, Пара ${pair}:`,
+              td.innerHTML
+            );
           }
           return td.outerHTML;
         })
@@ -425,7 +451,8 @@ document.getElementById("searchInput").addEventListener("input", () => {
   const searchText = document
     .getElementById("searchInput")
     .value.toLowerCase()
-    .trim();
+    .trim()
+    .replace(/\s+/g, " "); // Нормалізуємо пробіли
   const table = document.getElementById("scheduleTable");
   const rows = table.getElementsByTagName("tr");
   const searchResults = document.getElementById("searchResults");
@@ -444,75 +471,184 @@ document.getElementById("searchInput").addEventListener("input", () => {
     return;
   }
 
-  // Збираємо результати пошуку
+  // Перевіряємо, чи введений текст є номером групи
+  const isGroupSearch = groups.some(
+    (group) => group.name.toLowerCase() === searchText
+  );
   let matchesFound = false;
-  const displayedResults = new Set(); // Для уникнення дублювання результатів
 
-  for (let i = 2; i < rows.length; i++) {
-    const row = rows[i];
-    const cells = row.getElementsByTagName("td");
+  if (isGroupSearch) {
+    // Якщо це пошук за групою, знаходимо всі заняття для цієї групи
+    const groupSchedule = importedSchedule.filter(
+      (entry) => entry.group.toLowerCase() === searchText
+    );
 
-    // Визначаємо день і пару для поточного рядка
-    const dayIndex = Math.floor((i - 2) / 6);
-    const pair = ((i - 2) % 6) + 1;
-    const day = daysOfWeek[dayIndex];
-
-    // Починаємо з 2, щоб пропустити стовпці "Дні тижня" і "№ пари"
-    for (let j = 2; j < cells.length; j++) {
-      const cell = cells[j];
-      const spans = cell.getElementsByTagName("span");
-
-      // Дебагінг: перевіряємо, чи є span-елементи
-      if (spans.length === 0) {
-        continue; // Якщо немає span-елементів, пропускаємо клітинку
-      }
-
-      // Перевіряємо, чи є хоча б 3 span-елементи (предмет, викладач, тип)
-      if (spans.length >= 3) {
-        const subjectText = spans[0].textContent.toLowerCase(); // Предмет
-        const teacherText = spans[1].textContent.toLowerCase(); // Викладач
-        const typeText = spans[2].textContent.toLowerCase(); // Тип заняття
-
-        // Об'єднуємо всі поля для пошуку
-        const combinedText = `${subjectText} ${teacherText} ${typeText}`;
-
-        // Дебагінг: виводимо, що ми порівнюємо
-        console.log(`Порівнюємо: "${combinedText}" з "${searchText}"`);
-
-        // Перевіряємо, чи є збіг із введеним текстом
-        if (combinedText.includes(searchText)) {
-          matchesFound = true;
-
-          // Унікальний ключ для результату, щоб уникнути дублювання
-          const resultKey = `${day}|${pair}|${
-            groups[j - 2].name
-          }|${subjectText}|${teacherText}|${typeText}`;
-
-          if (!displayedResults.has(resultKey)) {
-            displayedResults.add(resultKey);
-
-            // Додаємо результат у спливаючий блок
-            const groupName = groups[j - 2].name; // Отримуємо назву групи
-            const resultItem = document.createElement("p");
-            resultItem.innerHTML = `<strong>День:</strong> ${day}, <strong>Пара:</strong> ${pair}, <strong>Група:</strong> ${groupName}, <strong>Предмет:</strong> ${spans[0].textContent}, <strong>Викладач:</strong> ${spans[1].textContent}, <strong>Тип:</strong> ${spans[2].textContent}<br>`;
-            Array.from(cell.childNodes).forEach((node) => {
-              if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
-                resultItem.innerHTML += node.textContent.trim() + "<br>";
-              } else if (node.nodeName === "A") {
-                resultItem.innerHTML += node.outerHTML + "<br>";
-              } else if (node.nodeName === "BR") {
-                resultItem.innerHTML += "<br>";
-              }
-            });
-            searchResultsContent.appendChild(resultItem);
-          }
+    if (groupSchedule.length > 0) {
+      matchesFound = true;
+      // Сортуємо за днями і парами для зручності
+      groupSchedule.sort((a, b) => {
+        if (a.day === b.day) {
+          return a.pair - b.pair;
         }
-      } else {
-        // Дебагінг: якщо span-елементів менше 3
-        console.log(
-          `Клітинка має лише ${spans.length} span-елементів:`,
-          cell.innerHTML
+        return a.day - b.day;
+      });
+
+      // Групуємо заняття за днями
+      const scheduleByDay = {};
+      daysOfWeek.forEach((day, dayIndex) => {
+        scheduleByDay[dayIndex] = groupSchedule.filter(
+          (entry) => entry.day === dayIndex
         );
+      });
+
+      // Відображаємо розклад для групи
+      daysOfWeek.forEach((day, dayIndex) => {
+        const dayEntries = scheduleByDay[dayIndex];
+        if (dayEntries.length > 0) {
+          const dayHeader = document.createElement("p");
+          dayHeader.className = "group-day-header"; // Використовуємо клас для червоного кольору
+          dayHeader.innerHTML = `<strong>${day}</strong>`;
+          searchResultsContent.appendChild(dayHeader);
+
+          dayEntries.forEach((entry) => {
+            const resultItem = document.createElement("p");
+            resultItem.innerHTML = `<strong>Пара:</strong> ${entry.pair}, <strong>Предмет:</strong> ${entry.subject}, <strong>Викладач:</strong> ${entry.teacher}, <strong>Тип:</strong> ${entry.type}`;
+            // Перевіряємо, чи link є валідним URL
+            const isValidUrl =
+              entry.link &&
+              (entry.link.startsWith("http://") ||
+                entry.link.startsWith("https://"));
+            if (isValidUrl) {
+              resultItem.innerHTML += `, <a href="${entry.link}" target="_blank">Посилання</a>`;
+            } else if (entry.link) {
+              // Витягуємо код і пароль із формату "код: [код] пароль: [пароль]"
+              const codeMatch = entry.link.match(/код:\s*(\S+)/i);
+              const passwordMatch = entry.link.match(/пароль:\s*(\S+)/i);
+              if (codeMatch && passwordMatch) {
+                const code = codeMatch[1].trim();
+                const password = passwordMatch[1].trim();
+                resultItem.innerHTML += `, Код: ${code}, Пароль: ${password}`;
+              } else if (codeMatch) {
+                const code = codeMatch[1].trim();
+                resultItem.innerHTML += `, Код: ${code}`;
+              }
+            }
+            searchResultsContent.appendChild(resultItem);
+          });
+        }
+      });
+    }
+  } else {
+    // Якщо це не номер групи, використовуємо попередню логіку пошуку
+    const displayedResults = new Set(); // Для уникнення дублювання результатів
+
+    for (let i = 2; i < rows.length; i++) {
+      const row = rows[i];
+      const cells = row.getElementsByTagName("td");
+
+      // Визначаємо день і пару для поточного рядка
+      const dayIndex = Math.floor((i - 2) / 6);
+      const pair = ((i - 2) % 6) + 1;
+      const day = daysOfWeek[dayIndex];
+
+      // Починаємо з 2, щоб пропустити стовпці "Дні тижня" і "№ пари"
+      for (let j = 2; j < cells.length; j++) {
+        const cell = cells[j];
+        const spans = cell.getElementsByTagName("span");
+
+        // Дебагінг: перевіряємо, чи є span-елементи
+        if (spans.length === 0) {
+          console.log(
+            `Клітинка порожня: Група ${
+              groups[j - 2].name
+            }, День ${day}, Пара ${pair}`
+          );
+          continue; // Якщо немає span-елементів, пропускаємо клітинку
+        }
+
+        // Перевіряємо, чи є хоча б 3 span-елементи (предмет, викладач, тип)
+        if (spans.length >= 3) {
+          const subjectText = (spans[0].textContent || "")
+            .toLowerCase()
+            .trim()
+            .replace(/\s+/g, " "); // Нормалізуємо пробіли
+          const teacherText = (spans[1].textContent || "")
+            .toLowerCase()
+            .trim()
+            .replace(/\s+/g, " "); // Нормалізуємо пробіли
+          const typeText = (spans[2].textContent || "")
+            .toLowerCase()
+            .trim()
+            .replace(/\s+/g, " "); // Нормалізуємо пробіли
+
+          // Нормалізуємо прізвище викладача: видаляємо "проф.", "доц.", ініціали тощо
+          const normalizedTeacherText = teacherText
+            .replace(/проф\.\s*/g, "") // Видаляємо "проф."
+            .replace(/доц\.\s*/g, "") // Видаляємо "доц."
+            .replace(/ст\.викл\.\s*/g, "") // Видаляємо "ст.викл."
+            .replace(/викл\.\s*/g, "") // Видаляємо "викл."
+            .replace(/\s*[а-я]\.[а-я]\./g, "") // Видаляємо ініціали (наприклад, "С.А.")
+            .trim();
+
+          // Об'єднуємо всі поля для пошуку
+          const combinedText = `${subjectText} ${teacherText} ${typeText}`;
+          const combinedTextForSearch = `${subjectText} ${normalizedTeacherText} ${typeText}`;
+
+          // Дебагінг: виводимо, що ми порівнюємо
+          console.log(
+            `Перевіряємо: Група ${
+              groups[j - 2].name
+            }, День ${day}, Пара ${pair}, Текст: "${combinedText}", Нормалізований текст: "${combinedTextForSearch}", Пошук: "${searchText}"`
+          );
+
+          // Перевіряємо, чи є збіг із введеним текстом
+          if (combinedTextForSearch.includes(searchText)) {
+            matchesFound = true;
+
+            // Унікальний ключ для результату: додаємо індекс клітинки, щоб уникнути дублювання
+            const resultKey = `${i}|${j}|${combinedText}`;
+
+            if (!displayedResults.has(resultKey)) {
+              displayedResults.add(resultKey);
+
+              // Додаємо результат у спливаючий блок
+              const groupName = groups[j - 2].name; // Отримуємо назву групи
+              const resultItem = document.createElement("p");
+              resultItem.innerHTML = `<strong>День:</strong> ${day}, <strong>Пара:</strong> ${pair}, <strong>Група:</strong> ${groupName}, <strong>Предмет:</strong> ${spans[0].textContent}, <strong>Викладач:</strong> ${spans[1].textContent}, <strong>Тип:</strong> ${spans[2].textContent}<br>`;
+              // Перевіряємо, чи link є валідним URL
+              const linkText = cell.querySelector("a")?.textContent || "";
+              if (linkText && linkText.includes("Посилання")) {
+                const linkHref = cell.querySelector("a")?.href || "#";
+                resultItem.innerHTML += `<a href="${linkHref}" target="_blank">Посилання</a><br>`;
+              } else {
+                const spans = cell.getElementsByTagName("span");
+                let code = "";
+                let password = "";
+                for (let span of spans) {
+                  if (span.textContent.startsWith("Код:")) {
+                    code = span.textContent.replace("Код: ", "");
+                  } else if (span.textContent.startsWith("Пароль:")) {
+                    password = span.textContent.replace("Пароль: ", "");
+                  }
+                }
+                if (code && password) {
+                  resultItem.innerHTML += `Код: ${code}, Пароль: ${password}<br>`;
+                } else if (code) {
+                  resultItem.innerHTML += `Код: ${code}<br>`;
+                }
+              }
+              searchResultsContent.appendChild(resultItem);
+            }
+          }
+        } else {
+          // Дебагінг: якщо span-елементів менше 3
+          console.log(
+            `Клітинка має лише ${spans.length} span-елементів: Група ${
+              groups[j - 2].name
+            }, День ${day}, Пара ${pair}, Вміст:`,
+            cell.innerHTML
+          );
+        }
       }
     }
   }

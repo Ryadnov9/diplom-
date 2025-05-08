@@ -244,6 +244,11 @@ td a:hover {
   z-index: 1001; /* Забезпечимо, що рядок пошуку буде над спливаючим вікном */
   margin-bottom: 10px;
 }
+.group-day-header {
+  color: #ff0000; /* Червоний колір для заголовків днів у результатах пошуку за групами */
+  font-weight: bold;
+  margin: 5px 0;
+}
 /* Анітація появи */
 @keyframes fadeIn {
   from {
