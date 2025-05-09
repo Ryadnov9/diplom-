@@ -4,6 +4,7 @@ const daysOfWeek = ["Понеділок", "Вівторок", "Середа", "�
 let groups = [];
 let importedSchedule = [];
 let teacherRestrictions = [];
+let isEditMode = false; // Для відстеження режиму редагування
 
 document
   .getElementById("generateButton")
@@ -22,6 +23,10 @@ document.getElementById("importButton").addEventListener("click", () => {
 document
   .getElementById("fileInput")
   .addEventListener("change", handleFileImport);
+
+document
+  .getElementById("editTableButton")
+  .addEventListener("click", toggleEditMode);
 
 // Функція для перевірки, чи слот (день + пара) вільний для викладача
 function isTeacherSlotFree(teacher, day, pair, schedule) {
@@ -170,7 +175,7 @@ function handleFileImport(event) {
           continue;
         }
         const [, teacher, allowedPairs, ...preferredDays] = fields;
-        if (teacher && allowedPairs && preferredDays.length > 0) {
+        if (teacher && allowedPairs) {
           // Парсимо дозволені пари
           let pairs = [];
           if (allowedPairs.includes("-")) {
@@ -185,18 +190,27 @@ function handleFileImport(event) {
               .filter((p) => !isNaN(p) && p >= 1 && p <= 6);
           }
 
-          // Перевіряємо, чи є бажані дні валідними
+          // Перевіряємо, чи є бажані дні валідними, і об'єднуємо їх у масив
           const validPreferredDays = preferredDays
+            .join(",")
+            .split(",")
+            .map((day) => day.trim())
             .filter((day) => daysOfWeek.includes(day))
             .map((day) => daysOfWeek.indexOf(day));
 
-          if (pairs.length > 0 && validPreferredDays.length > 0) {
+          if (pairs.length > 0) {
             teacherRestrictions.push({
               teacher,
               allowedPairs: pairs,
               preferredDays: validPreferredDays,
             });
+          } else {
+            console.warn(`Немає валідних пар для викладача ${teacher}`);
           }
+        } else {
+          console.warn(
+            `Неправильний формат для викладача у рядку ${i + 1}: ${rows[i]}`
+          );
         }
         i++;
       }
@@ -369,16 +383,6 @@ function handleFileImport(event) {
         }
       }
 
-      // Дебагінг: перевіряємо, чи є записи для групи 12-411 у importedSchedule
-      console.log("Розклад (importedSchedule):", importedSchedule);
-      const hasGroup411Schedule = importedSchedule.some(
-        (entry) => entry.group === "12-411"
-      );
-      console.log(
-        "Чи є записи для групи 12-411 у розкладі:",
-        hasGroup411Schedule
-      );
-
       if (importedSchedule.length === 0) {
         alert("Не знайдено валідних даних про заняття у файлі.");
         return;
@@ -406,6 +410,7 @@ function generateSchedule() {
   document.getElementById("clearTableButton").style.display = "inline-block";
   document.getElementById("exportButton").style.display = "inline-block";
   document.getElementById("backButton").style.display = "inline-block";
+  document.getElementById("editTableButton").style.display = "inline-block";
   renderTable(importedSchedule);
 }
 
@@ -444,6 +449,7 @@ function clearTable() {
   document.getElementById("clearTableButton").style.display = "inline-block";
   document.getElementById("exportButton").style.display = "inline-block";
   document.getElementById("backButton").style.display = "inline-block";
+  document.getElementById("editTableButton").style.display = "none";
 
   // Приховуємо спливаючий блок із результатами пошуку
   document.getElementById("searchResults").style.display = "none";
@@ -460,8 +466,168 @@ function backToGenerate() {
   document.getElementById("clearTableButton").style.display = "none";
   document.getElementById("exportButton").style.display = "none";
   document.getElementById("backButton").style.display = "none";
+  document.getElementById("editTableButton").style.display = "none";
   // Приховуємо спливаючий блок із результатами пошуку
   document.getElementById("searchResults").style.display = "none";
+}
+
+function toggleEditMode() {
+  const table = document.getElementById("scheduleTable");
+  const cells = table.getElementsByTagName("td");
+
+  if (!isEditMode) {
+    // Вмикаємо режим редагування
+    for (let i = 2; i < table.rows.length; i++) {
+      const row = table.rows[i];
+      const dayIndex = Math.floor((i - 2) / 6);
+      const pair = ((i - 2) % 6) + 1;
+
+      for (let j = 2; j < row.cells.length; j++) {
+        const cell = row.cells[j];
+        const groupIndex = j - 2;
+        const group = groups[groupIndex].name;
+        const spans = cell.getElementsByTagName("span");
+
+        if (spans.length >= 3) {
+          const subject = spans[0].textContent || "";
+          const teacher = spans[1].textContent || "";
+          const type = spans[2].textContent || "";
+          let link = "";
+          const linkElement = cell.querySelector("a");
+          if (linkElement) {
+            link = linkElement.href || "";
+          } else {
+            const codeSpans = cell.getElementsByTagName("span");
+            for (let span of codeSpans) {
+              if (span.textContent.startsWith("Код:")) {
+                link += span.textContent.replace("Код: ", "") + " ";
+              } else if (span.textContent.startsWith("Пароль:")) {
+                link += "Пароль: " + span.textContent.replace("Пароль: ", "");
+              }
+            }
+          }
+
+          cell.setAttribute("data-day", dayIndex);
+          cell.setAttribute("data-pair", pair);
+          cell.setAttribute("data-group", group);
+
+          cell.innerHTML = `
+            <input type="text" value="${subject}" placeholder="Предмет">
+            <br><input type="text" value="${teacher}" placeholder="Викладач">
+            <br><input type="text" value="${type}" placeholder="Тип">
+            <br><input type="text" value="${link}" placeholder="Посилання/Код">
+            <br><button class="save-btn" onclick="saveEdit(this)">Зберегти</button>
+          `;
+        }
+      }
+    }
+    document.getElementById("editTableButton").textContent =
+      "Завершити редагування";
+    isEditMode = true;
+  } else {
+    // Вимикаємо режим редагування
+    for (let cell of cells) {
+      const inputs = cell.getElementsByTagName("input");
+      if (inputs.length === 4) {
+        const subject = inputs[0].value || "Немає предмета";
+        const teacher = inputs[1].value || "Немає викладача";
+        const type = inputs[2].value || "Немає типу";
+        let link = inputs[3].value || "";
+
+        let linkContent = "";
+        if (
+          link &&
+          (link.startsWith("http://") || link.startsWith("https://"))
+        ) {
+          linkContent = `<a href="${link}" target="_blank" class="schedule-item">Посилання</a>`;
+        } else if (link) {
+          const codeMatch = link.match(/код:\s*(\S+)/i);
+          const passwordMatch = link.match(/пароль:\s*(\S+)/i);
+          if (codeMatch && passwordMatch) {
+            const code = codeMatch[1].trim();
+            const password = passwordMatch[1].trim();
+            linkContent = `<span class="schedule-item">Код: ${code}</span><br><span class="schedule-item">Пароль: ${password}</span>`;
+          } else if (codeMatch) {
+            const code = codeMatch[1].trim();
+            linkContent = `<span class="schedule-item">Код: ${code}</span>`;
+          } else {
+            linkContent = `<span class="schedule-item">${link}</span>`;
+          }
+        }
+
+        cell.innerHTML = `
+          <div class="schedule-entry">
+            <span class="schedule-item">${subject}</span>
+            <span class="schedule-item">${teacher}</span>
+            <span class="schedule-item">${type}</span>
+            ${linkContent ? linkContent : ""}
+          </div>
+        `;
+      }
+    }
+    document.getElementById("editTableButton").textContent =
+      "Редагувати таблицю";
+    isEditMode = false;
+  }
+}
+
+function saveEdit(button) {
+  const cell = button.parentElement;
+  const inputs = cell.getElementsByTagName("input");
+  if (inputs.length === 4) {
+    const subject = inputs[0].value || "Немає предмета";
+    const teacher = inputs[1].value || "Немає викладача";
+    const type = inputs[2].value || "Немає типу";
+    let link = inputs[3].value || "";
+
+    // Отримуємо координати клітинки
+    const day = parseInt(cell.getAttribute("data-day"));
+    const pair = parseInt(cell.getAttribute("data-pair"));
+    const group = cell.getAttribute("data-group");
+
+    // Оновлюємо importedSchedule
+    const scheduleIndex = importedSchedule.findIndex(
+      (entry) =>
+        entry.group === group && entry.day === day && entry.pair === pair
+    );
+    if (scheduleIndex !== -1) {
+      importedSchedule[scheduleIndex] = {
+        ...importedSchedule[scheduleIndex],
+        subject,
+        teacher,
+        type,
+        link,
+      };
+    }
+
+    // Оновлюємо відображення клітинки з правильною структурою
+    let linkContent = "";
+    if (link && (link.startsWith("http://") || link.startsWith("https://"))) {
+      linkContent = `<a href="${link}" target="_blank" class="schedule-item">Посилання</a>`;
+    } else if (link) {
+      const codeMatch = link.match(/код:\s*(\S+)/i);
+      const passwordMatch = link.match(/пароль:\s*(\S+)/i);
+      if (codeMatch && passwordMatch) {
+        const code = codeMatch[1].trim();
+        const password = passwordMatch[1].trim();
+        linkContent = `<span class="schedule-item">Код: ${code}</span><br><span class="schedule-item">Пароль: ${password}</span>`;
+      } else if (codeMatch) {
+        const code = codeMatch[1].trim();
+        linkContent = `<span class="schedule-item">Код: ${code}</span>`;
+      } else {
+        linkContent = `<span class="schedule-item">${link}</span>`;
+      }
+    }
+
+    cell.innerHTML = `
+      <div class="schedule-entry">
+        <span class="schedule-item">${subject}</span>
+        <span class="schedule-item">${teacher}</span>
+        <span class="schedule-item">${type}</span>
+        ${linkContent ? linkContent : ""}
+      </div>
+    `;
+  }
 }
 
 function renderTable(generatedSchedule) {
@@ -500,75 +666,42 @@ function renderTable(generatedSchedule) {
               e.group === group.name && e.day === dayIndex && e.pair === pair
           );
 
-          // Дебагінг: перевіряємо, чи є запис для першої групи
-          if (groupIndex === 0 && entry) {
-            console.log(
-              `Знайдено запис для першої групи (${group.name}): День ${day}, Пара ${pair}, Дані:`,
-              entry
-            );
-          } else if (groupIndex === 0 && !entry) {
-            console.log(
-              `Запис для першої групи (${group.name}) не знайдено: День ${day}, Пара ${pair}`
-            );
-          }
-
           const td = document.createElement("td");
           if (entry) {
-            const subjectSpan = document.createElement("span");
-            subjectSpan.textContent = entry.subject || "Немає предмета";
-            td.appendChild(subjectSpan);
-
-            const teacherSpan = document.createElement("span");
-            teacherSpan.textContent = entry.teacher || "Немає викладача";
-            td.appendChild(document.createElement("br"));
-            td.appendChild(teacherSpan);
-
-            const typeSpan = document.createElement("span");
-            typeSpan.textContent = entry.type || "Немає типу";
-            td.appendChild(document.createElement("br"));
-            td.appendChild(typeSpan);
-
-            // Перевіряємо, чи link є валідним URL
-            const isValidUrl =
+            let linkContent = "";
+            if (
               entry.link &&
               (entry.link.startsWith("http://") ||
-                entry.link.startsWith("https://"));
-            if (isValidUrl) {
-              const linkElement = document.createElement("a");
-              linkElement.href = entry.link || "#";
-              linkElement.target = "_blank";
-              linkElement.textContent = "Посилання";
-              td.appendChild(document.createElement("br"));
-              td.appendChild(linkElement);
+                entry.link.startsWith("https://"))
+            ) {
+              linkContent = `<a href="${entry.link}" target="_blank" class="schedule-item">Посилання</a>`;
             } else if (entry.link) {
-              // Витягуємо код і пароль із формату "код: [код] пароль: [пароль]"
               const codeMatch = entry.link.match(/код:\s*(\S+)/i);
               const passwordMatch = entry.link.match(/пароль:\s*(\S+)/i);
               if (codeMatch && passwordMatch) {
                 const code = codeMatch[1].trim();
                 const password = passwordMatch[1].trim();
-                const codeSpan = document.createElement("span");
-                codeSpan.textContent = `Код: ${code}`;
-                td.appendChild(document.createElement("br"));
-                td.appendChild(codeSpan);
-                const passwordSpan = document.createElement("span");
-                passwordSpan.textContent = `Пароль: ${password}`;
-                td.appendChild(document.createElement("br"));
-                td.appendChild(passwordSpan);
+                linkContent = `<span class="schedule-item">Код: ${code}</span><br><span class="schedule-item">Пароль: ${password}</span>`;
               } else if (codeMatch) {
                 const code = codeMatch[1].trim();
-                const codeSpan = document.createElement("span");
-                codeSpan.textContent = `Код: ${code}`;
-                td.appendChild(document.createElement("br"));
-                td.appendChild(codeSpan);
+                linkContent = `<span class="schedule-item">Код: ${code}</span>`;
+              } else {
+                linkContent = `<span class="schedule-item">${entry.link}</span>`;
               }
             }
 
-            // Дебагінг: перевіряємо вміст клітинки
-            console.log(
-              `Клітинка для групи ${group.name}, День ${day}, Пара ${pair}:`,
-              td.innerHTML
-            );
+            td.innerHTML = `
+              <div class="schedule-entry">
+                <span class="schedule-item">${
+                  entry.subject || "Немає предмета"
+                }</span>
+                <span class="schedule-item">${
+                  entry.teacher || "Немає викладача"
+                }</span>
+                <span class="schedule-item">${entry.type || "Немає типу"}</span>
+                ${linkContent ? linkContent : ""}
+              </div>
+            `;
           }
           return td.outerHTML;
         })
@@ -585,17 +718,15 @@ document.getElementById("searchInput").addEventListener("input", () => {
     .getElementById("searchInput")
     .value.toLowerCase()
     .trim()
-    .replace(/\s+/g, " "); // Нормалізуємо пробіли
+    .replace(/\s+/g, " ");
   const table = document.getElementById("scheduleTable");
   const rows = table.getElementsByTagName("tr");
   const searchResults = document.getElementById("searchResults");
   const searchResultsContent = document.getElementById("searchResultsContent");
   const searchBar = document.querySelector(".search-bar");
 
-  // Очищаємо вміст спливаючого блоку
   searchResultsContent.innerHTML = "";
 
-  // Якщо текст пошуку порожній, приховуємо спливаючий блок і показуємо всю таблицю
   if (!searchText) {
     searchResults.style.display = "none";
     for (let i = 2; i < rows.length; i++) {
@@ -604,21 +735,18 @@ document.getElementById("searchInput").addEventListener("input", () => {
     return;
   }
 
-  // Перевіряємо, чи введений текст є номером групи
   const isGroupSearch = groups.some(
     (group) => group.name.toLowerCase() === searchText
   );
   let matchesFound = false;
 
   if (isGroupSearch) {
-    // Якщо це пошук за групою, знаходимо всі заняття для цієї групи
     const groupSchedule = importedSchedule.filter(
       (entry) => entry.group.toLowerCase() === searchText
     );
 
     if (groupSchedule.length > 0) {
       matchesFound = true;
-      // Сортуємо за днями і парами для зручності
       groupSchedule.sort((a, b) => {
         if (a.day === b.day) {
           return a.pair - b.pair;
@@ -626,7 +754,6 @@ document.getElementById("searchInput").addEventListener("input", () => {
         return a.day - b.day;
       });
 
-      // Групуємо заняття за днями
       const scheduleByDay = {};
       daysOfWeek.forEach((day, dayIndex) => {
         scheduleByDay[dayIndex] = groupSchedule.filter(
@@ -634,172 +761,139 @@ document.getElementById("searchInput").addEventListener("input", () => {
         );
       });
 
-      // Відображаємо розклад для групи
       daysOfWeek.forEach((day, dayIndex) => {
         const dayEntries = scheduleByDay[dayIndex];
         if (dayEntries.length > 0) {
           const dayHeader = document.createElement("p");
-          dayHeader.className = "group-day-header"; // Використовуємо клас для червоного кольору
+          dayHeader.className = "group-day-header";
           dayHeader.innerHTML = `<strong>${day}</strong>`;
           searchResultsContent.appendChild(dayHeader);
 
           dayEntries.forEach((entry) => {
-            const resultItem = document.createElement("p");
-            resultItem.innerHTML = `<strong>Пара:</strong> ${entry.pair}, <strong>Предмет:</strong> ${entry.subject}, <strong>Викладач:</strong> ${entry.teacher}, <strong>Тип:</strong> ${entry.type}`;
-            // Перевіряємо, чи link є валідним URL
-            const isValidUrl =
+            let linkContent = "";
+            if (
               entry.link &&
               (entry.link.startsWith("http://") ||
-                entry.link.startsWith("https://"));
-            if (isValidUrl) {
-              resultItem.innerHTML += `, <a href="${entry.link}" target="_blank">Посилання</a>`;
+                entry.link.startsWith("https://"))
+            ) {
+              linkContent = `<a href="${entry.link}" target="_blank">Посилання</a>`;
             } else if (entry.link) {
-              // Витягуємо код і пароль із формату "код: [код] пароль: [пароль]"
               const codeMatch = entry.link.match(/код:\s*(\S+)/i);
               const passwordMatch = entry.link.match(/пароль:\s*(\S+)/i);
               if (codeMatch && passwordMatch) {
                 const code = codeMatch[1].trim();
                 const password = passwordMatch[1].trim();
-                resultItem.innerHTML += `, Код: ${code}, Пароль: ${password}`;
+                linkContent = `<span>Код: ${code}</span><br><span>Пароль: ${password}</span>`;
               } else if (codeMatch) {
                 const code = codeMatch[1].trim();
-                resultItem.innerHTML += `, Код: ${code}`;
+                linkContent = `<span>Код: ${code}</span>`;
+              } else {
+                linkContent = `<span>${entry.link}</span>`;
               }
             }
+
+            const resultItem = document.createElement("p");
+            resultItem.innerHTML = `
+              <strong>Пара:</strong> ${entry.pair}, 
+              <span>${entry.subject}</span>, 
+              <span>${entry.teacher}</span>, 
+              <span>${entry.type}</span>
+              ${linkContent ? `, ${linkContent}` : ""}
+            `;
             searchResultsContent.appendChild(resultItem);
           });
         }
       });
     }
   } else {
-    // Якщо це не номер групи, використовуємо попередню логіку пошуку
-    const displayedResults = new Set(); // Для уникнення дублювання результатів
+    const displayedResults = new Set();
 
     for (let i = 2; i < rows.length; i++) {
       const row = rows[i];
       const cells = row.getElementsByTagName("td");
 
-      // Визначаємо день і пару для поточного рядка
       const dayIndex = Math.floor((i - 2) / 6);
       const pair = ((i - 2) % 6) + 1;
       const day = daysOfWeek[dayIndex];
 
-      // Починаємо з 2, щоб пропустити стовпці "Дні тижня" і "№ пари"
       for (let j = 2; j < cells.length; j++) {
         const cell = cells[j];
         const spans = cell.getElementsByTagName("span");
 
-        // Дебагінг: перевіряємо, чи є span-елементи
-        if (spans.length === 0) {
-          console.log(
-            `Клітинка порожня: Група ${
-              groups[j - 2].name
-            }, День ${day}, Пара ${pair}`
-          );
-          continue; // Якщо немає span-елементів, пропускаємо клітинку
-        }
-
-        // Перевіряємо, чи є хоча б 3 span-елементи (предмет, викладач, тип)
         if (spans.length >= 3) {
           const subjectText = (spans[0].textContent || "")
             .toLowerCase()
             .trim()
-            .replace(/\s+/g, " "); // Нормалізуємо пробіли
+            .replace(/\s+/g, " ");
           const teacherText = (spans[1].textContent || "")
             .toLowerCase()
             .trim()
-            .replace(/\s+/g, " "); // Нормалізуємо пробіли
+            .replace(/\s+/g, " ");
           const typeText = (spans[2].textContent || "")
             .toLowerCase()
             .trim()
-            .replace(/\s+/g, " "); // Нормалізуємо пробіли
+            .replace(/\s+/g, " ");
 
-          // Нормалізуємо прізвище викладача: видаляємо "проф.", "доц.", ініціали тощо
           const normalizedTeacherText = teacherText
-            .replace(/проф\.\s*/g, "") // Видаляємо "проф."
-            .replace(/доц\.\s*/g, "") // Видаляємо "доц."
-            .replace(/ст\.викл\.\s*/g, "") // Видаляємо "ст.викл."
-            .replace(/викл\.\s*/g, "") // Видаляємо "викл."
-            .replace(/\s*[а-я]\.[а-я]\./g, "") // Видаляємо ініціали (наприклад, "С.А.")
+            .replace(/проф\.\s*/g, "")
+            .replace(/доц\.\s*/g, "")
+            .replace(/ст\.викл\.\s*/g, "")
+            .replace(/викл\.\s*/g, "")
+            .replace(/\s*[а-я]\.[а-я]\./g, "")
             .trim();
 
-          // Об'єднуємо всі поля для пошуку
           const combinedText = `${subjectText} ${teacherText} ${typeText}`;
           const combinedTextForSearch = `${subjectText} ${normalizedTeacherText} ${typeText}`;
 
-          // Дебагінг: виводимо, що ми порівнюємо
-          console.log(
-            `Перевіряємо: Група ${
-              groups[j - 2].name
-            }, День ${day}, Пара ${pair}, Текст: "${combinedText}", Нормалізований текст: "${combinedTextForSearch}", Пошук: "${searchText}"`
-          );
-
-          // Перевіряємо, чи є збіг із введеним текстом
           if (combinedTextForSearch.includes(searchText)) {
             matchesFound = true;
 
-            // Унікальний ключ для результату: додаємо індекс клітинки, щоб уникнути дублювання
             const resultKey = `${i}|${j}|${combinedText}`;
-
             if (!displayedResults.has(resultKey)) {
               displayedResults.add(resultKey);
 
-              // Додаємо результат у спливаючий блок
-              const groupName = groups[j - 2].name; // Отримуємо назву групи
+              const groupName = groups[j - 2].name;
               const resultItem = document.createElement("p");
-              resultItem.innerHTML = `<strong>День:</strong> ${day}, <strong>Пара:</strong> ${pair}, <strong>Група:</strong> ${groupName}, <strong>Предмет:</strong> ${spans[0].textContent}, <strong>Викладач:</strong> ${spans[1].textContent}, <strong>Тип:</strong> ${spans[2].textContent}<br>`;
-              // Перевіряємо, чи link є валідним URL
-              const linkText = cell.querySelector("a")?.textContent || "";
-              if (linkText && linkText.includes("Посилання")) {
-                const linkHref = cell.querySelector("a")?.href || "#";
-                resultItem.innerHTML += `<a href="${linkHref}" target="_blank">Посилання</a><br>`;
-              } else {
-                const spans = cell.getElementsByTagName("span");
-                let code = "";
-                let password = "";
-                for (let span of spans) {
-                  if (span.textContent.startsWith("Код:")) {
-                    code = span.textContent.replace("Код: ", "");
-                  } else if (span.textContent.startsWith("Пароль:")) {
-                    password = span.textContent.replace("Пароль: ", "");
-                  }
+              resultItem.innerHTML = `
+                <strong>День:</strong> ${day}, 
+                <strong>Пара:</strong> ${pair}, 
+                <strong>Група:</strong> ${groupName}, 
+                <span>${spans[0].textContent}</span>, 
+                <span>${spans[1].textContent}</span>, 
+                <span>${spans[2].textContent}</span>
+                ${
+                  cell.querySelector("a")
+                    ? `, <a href="${
+                        cell.querySelector("a").href
+                      }" target="_blank">Посилання</a>`
+                    : cell
+                        .querySelector(".schedule-item")
+                        ?.textContent.includes("Код:")
+                    ? `, <span>${
+                        cell.querySelector(".schedule-item").textContent
+                      }</span>`
+                    : ""
                 }
-                if (code && password) {
-                  resultItem.innerHTML += `Код: ${code}, Пароль: ${password}<br>`;
-                } else if (code) {
-                  resultItem.innerHTML += `Код: ${code}<br>`;
-                }
-              }
+              `;
               searchResultsContent.appendChild(resultItem);
             }
           }
-        } else {
-          // Дебагінг: якщо span-елементів менше 3
-          console.log(
-            `Клітинка має лише ${spans.length} span-елементів: Група ${
-              groups[j - 2].name
-            }, День ${day}, Пара ${pair}, Вміст:`,
-            cell.innerHTML
-          );
         }
       }
     }
   }
 
-  // Показуємо або приховуємо спливаючий блок залежно від наявності результатів
   if (matchesFound) {
-    // Динамічно налаштовуємо позицію спливаючого вікна
     const searchBarRect = searchBar.getBoundingClientRect();
-    searchResults.style.top = `${searchBarRect.bottom + window.scrollY + 10}px`; // Розташовуємо під рядком пошуку
+    searchResults.style.top = `${searchBarRect.bottom + window.scrollY + 10}px`;
     searchResults.style.display = "block";
   } else {
     searchResultsContent.innerHTML = "<p>Нічого не знайдено.</p>";
     const searchBarRect = searchBar.getBoundingClientRect();
-    searchResults.style.top = `${searchBarRect.bottom + window.scrollY + 10}px`; // Розташовуємо під рядком пошуку
+    searchResults.style.top = `${searchBarRect.bottom + window.scrollY + 10}px`;
     searchResults.style.display = "block";
   }
 
-  // Завжди показуємо всі рядки основної таблиці
   for (let i = 2; i < rows.length; i++) {
     rows[i].style.display = "";
   }

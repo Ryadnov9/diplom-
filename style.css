@@ -249,6 +249,40 @@ td a:hover {
   font-weight: bold;
   margin: 5px 0;
 }
+
+/*Кнопка редагування*/
+.btn-edit {
+  background-color: #28a745; /* Зелений колір */
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  cursor: pointer;
+  border-radius: 5px;
+  font-family: "Roboto", sans-serif;
+  font-weight: 700;
+}
+
+.btn-edit:hover {
+  background-color: #218838; /* Темніший зелений при наведенні */
+}
+
+/*Стилі для клеток*/
+
+.schedule-entry {
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* Центрування по горизонталі */
+  text-align: center; /* Центрування тексту */
+  padding: 2px 0; /* Мінімальний вертикальний відступ для компактності */
+  line-height: 1.2; /* Контроль висоти рядків */
+}
+
+.schedule-item {
+  display: block; /* Кожен елемент на новому рядку */
+  margin: 0; /* Прибираємо зайві відступи */
+  padding: 0;
+}
+
 /* Анітація появи */
 @keyframes fadeIn {
   from {
