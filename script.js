@@ -1,4 +1,6 @@
 const daysOfWeek = ["Понеділок", "Вівторок", "Середа", "Четвер", "П’ятниця"];
+const PAIR_DURATION_MINUTES = 80; // Тривалість пари за замовчуванням: 1 година 20 хвилин (80 хвилин)
+const MAX_PAIRS_PER_DAY = 6; // Максимальна кількість пар у день
 
 // Глобальні масиви для збереження груп, розкладу та обмежень викладачів
 let groups = [];
@@ -36,7 +38,18 @@ function isTeacherSlotFree(teacher, day, pair, schedule) {
   );
 }
 
-// Функція для пошуку вільного слота для викладача
+// Функція для перевірки, чи день має достатньо вільних слотів для занять
+function hasEnoughFreeSlots(teacher, day, weeklyCount, schedule) {
+  let occupiedSlots = 0;
+  for (let pair = 1; pair <= MAX_PAIRS_PER_DAY; pair++) {
+    if (!isTeacherSlotFree(teacher, day, pair, schedule)) {
+      occupiedSlots++;
+    }
+  }
+  return occupiedSlots + weeklyCount <= MAX_PAIRS_PER_DAY;
+}
+
+// Функція для пошуку вільного слота для викладача з урахуванням тривалості
 function findFreeSlot(
   teacher,
   allowedPairs,
@@ -59,6 +72,7 @@ function findFreeSlot(
     attempts++;
 
     if (availableDays.length === 0) {
+      console.warn(`Немає доступних днів для викладача ${teacher}`);
       return null; // Немає доступних днів
     }
 
@@ -66,8 +80,11 @@ function findFreeSlot(
     const day = availableDays[dayIndex];
     let availablePairs = [...allowedPairs];
 
-    if (availablePairs.length === 0) {
-      availableDays.splice(dayIndex, 1); // Видаляємо день, якщо немає доступних пар
+    if (
+      availablePairs.length === 0 ||
+      !hasEnoughFreeSlots(teacher, day, weeklyCount, schedule)
+    ) {
+      availableDays.splice(dayIndex, 1); // Видаляємо день, якщо немає достатньо слотів
       continue;
     }
 
@@ -80,7 +97,7 @@ function findFreeSlot(
       let sequentialPairs = [];
       for (let j = 0; j < weeklyCount; j++) {
         const pair = startPair + j;
-        if (pair > 6 || !allowedPairs.includes(pair)) {
+        if (pair > MAX_PAIRS_PER_DAY || !allowedPairs.includes(pair)) {
           sequentialPairs = [];
           break;
         }
@@ -95,7 +112,6 @@ function findFreeSlot(
         slots.push(...sequentialPairs);
         break; // Знайшли послідовні слоти
       } else {
-        // Якщо не вдалося знайти послідовні слоти, видаляємо день і пробуємо інший
         availableDays.splice(dayIndex, 1);
         continue;
       }
@@ -107,7 +123,7 @@ function findFreeSlot(
         slots.push({ day, pair });
         availablePairs.splice(pairIndex, 1); // Видаляємо пару, щоб не використовувати її повторно
       } else {
-        availablePairs.splice(pairIndex, 1); // Видаляємо пару і пробуємо іншу
+        availablePairs.splice(pairIndex, 1);
         if (availablePairs.length === 0) {
           availableDays.splice(dayIndex, 1); // Якщо пар немає, видаляємо день
         }
@@ -115,14 +131,12 @@ function findFreeSlot(
       }
     }
 
-    // Якщо зібрали достатньо слотів, виходимо
     if (slots.length === weeklyCount) break;
-
-    // Якщо не вдалося знайти слот у цьому дні, видаляємо день і пробуємо інший
     availableDays.splice(dayIndex, 1);
   }
 
   if (slots.length < weeklyCount) {
+    console.warn(`Не знайдено достатньо слотів для викладача ${teacher}`);
     return null; // Не вдалося знайти достатньо слотів
   }
 
@@ -131,163 +145,222 @@ function findFreeSlot(
 
 function handleFileImport(event) {
   const file = event.target.files[0];
-  if (!file) return;
+  if (!file) {
+    alert("Файл не вибрано!");
+    return;
+  }
 
   const reader = new FileReader();
   reader.onload = function (e) {
     const text = e.target.result;
+    console.log("Зчитаний текст із CSV:", text); // Додаємо логування для перевірки
     try {
       const rows = text
         .split("\n")
         .map((row) => row.trim())
         .filter((row) => row);
-      importedSchedule = [];
-      groups = [];
-      teacherRestrictions = []; // Очищаємо масив обмежень викладачів
-
-      // Зчитуємо перший рядок, щоб перевірити формат
-      const headers = rows[0].split(",").map((header) => header.trim());
-      let isGroupSection = headers[0] === "group_info" && headers.length === 3;
-      let isLessonSection = headers[0] === "group" && headers.length === 6;
-      let isTeacherRestrictionSection =
-        headers[0] === "teacher_restrictions" && headers.length >= 4;
-
-      if (!isGroupSection && !isLessonSection && !isTeacherRestrictionSection) {
-        alert(
-          "Неправильний формат CSV. Очікується: group_info,group,subject для груп, group,subject,teacher,type,link,weeklyCount для занять або teacher_restrictions,teacher,allowed_pairs,preferred_days для обмежень викладачів"
-        );
+      console.log("Рядки після обробки:", rows); // Логування рядків
+      if (rows.length === 0) {
+        alert("CSV-файл порожній!");
         return;
       }
 
-      let i = 1;
+      importedSchedule = [];
+      groups = [];
+      teacherRestrictions = [];
+      let pendingLessons = []; // Тимчасове сховище для занять
+      let semesterWeeks = 16; // Значення за замовчуванням
 
-      // Зчитуємо обмеження викладачів
-      while (i < rows.length && rows[i].startsWith("teacher_restrictions")) {
-        const fields = rows[i].split(",").map((item) => item.trim());
-        if (fields.length < 4) {
-          console.error(
-            `Рядок ${i + 1} має неправильну кількість полів (${
-              fields.length
-            } замість 4 або більше):`,
-            rows[i]
-          );
+      // Зчитуємо всі секції
+      let i = 0;
+      while (i < rows.length) {
+        const headers = rows[i].split(",").map((header) => header.trim());
+        console.log(`Заголовки, рядок ${i + 1}:`, headers); // Логування заголовків
+
+        if (headers[0] === "semester_info" && headers.length === 2) {
           i++;
-          continue;
-        }
-        const [, teacher, allowedPairs, ...preferredDays] = fields;
-        if (teacher && allowedPairs) {
-          // Парсимо дозволені пари
-          let pairs = [];
-          if (allowedPairs.includes("-")) {
-            const [start, end] = allowedPairs.split("-").map(Number);
-            for (let p = start; p <= end; p++) {
-              pairs.push(p);
+          while (i < rows.length && rows[i].startsWith("semester_info")) {
+            const fields = rows[i].split(",").map((item) => item.trim());
+            console.log(`Обробка semester_info, рядок ${i + 1}:`, fields); // Логування
+            if (fields.length !== 2) {
+              console.error(
+                `Рядок ${i + 1} має неправильну кількість полів (${
+                  fields.length
+                } замість 2):`,
+                rows[i]
+              );
+              i++;
+              continue;
             }
-          } else {
-            pairs = allowedPairs
-              .split(" ")
-              .map(Number)
-              .filter((p) => !isNaN(p) && p >= 1 && p <= 6);
+            const [, weeks] = fields;
+            const weeksNum = parseInt(weeks);
+            if (!isNaN(weeksNum) && weeksNum >= 1 && weeksNum <= 20) {
+              semesterWeeks = weeksNum;
+            } else {
+              console.warn(
+                `Неправильне значення тижнів у рядку ${
+                  i + 1
+                }: ${weeks}. Використано значення за замовчуванням (16).`
+              );
+            }
+            i++;
           }
+        } else if (
+          headers[0] === "teacher_restrictions" &&
+          headers.length >= 4
+        ) {
+          i++;
+          while (
+            i < rows.length &&
+            rows[i].startsWith("teacher_restrictions")
+          ) {
+            const fields = rows[i].split(",").map((item) => item.trim());
+            console.log(
+              `Обробка teacher_restrictions, рядок ${i + 1}:`,
+              fields
+            ); // Логування
+            if (fields.length < 4) {
+              console.error(
+                `Рядок ${i + 1} має неправильну кількість полів (${
+                  fields.length
+                } замість 4 або більше):`,
+                rows[i]
+              );
+              i++;
+              continue;
+            }
+            const [, teacher, allowedPairs, ...preferredDays] = fields;
+            if (teacher && allowedPairs) {
+              let pairs = [];
+              if (allowedPairs.includes("-")) {
+                const [start, end] = allowedPairs.split("-").map(Number);
+                for (let p = start; p <= end; p++) {
+                  pairs.push(p);
+                }
+              } else {
+                pairs = allowedPairs
+                  .split(" ")
+                  .map(Number)
+                  .filter((p) => !isNaN(p) && p >= 1 && p <= 6);
+              }
 
-          // Перевіряємо, чи є бажані дні валідними, і об'єднуємо їх у масив
-          const validPreferredDays = preferredDays
-            .join(",")
-            .split(",")
-            .map((day) => day.trim())
-            .filter((day) => daysOfWeek.includes(day))
-            .map((day) => daysOfWeek.indexOf(day));
+              const validPreferredDays = preferredDays
+                .join(",")
+                .split(",")
+                .map((day) => day.trim())
+                .filter((day) => daysOfWeek.includes(day))
+                .map((day) => daysOfWeek.indexOf(day));
 
-          if (pairs.length > 0) {
-            teacherRestrictions.push({
-              teacher,
-              allowedPairs: pairs,
-              preferredDays: validPreferredDays,
-            });
-          } else {
-            console.warn(`Немає валідних пар для викладача ${teacher}`);
+              if (pairs.length > 0) {
+                teacherRestrictions.push({
+                  teacher,
+                  allowedPairs: pairs,
+                  preferredDays: validPreferredDays,
+                });
+              } else {
+                console.warn(`Немає валідних пар для викладача ${teacher}`);
+              }
+            } else {
+              console.warn(
+                `Неправильний формат для викладача у рядку ${i + 1}: ${rows[i]}`
+              );
+            }
+            i++;
+          }
+        } else if (headers[0] === "group_info" && headers.length === 3) {
+          i++;
+          while (i < rows.length && rows[i].startsWith("group_info")) {
+            const fields = rows[i].split(",").map((item) => item.trim());
+            console.log(`Обробка group_info, рядок ${i + 1}:`, fields); // Логування
+            if (fields.length !== 3) {
+              console.error(
+                `Рядок ${i + 1} має неправильну кількість полів (${
+                  fields.length
+                } замість 3):`,
+                rows[i]
+              );
+              i++;
+              continue;
+            }
+            const [, group, subject] = fields;
+            if (group && subject) {
+              groups.push({ name: group, subject });
+            }
+            i++;
+          }
+        } else if (headers[0] === "group" && headers.length === 6) {
+          i++;
+          while (
+            i < rows.length &&
+            !rows[i].startsWith("semester_info") &&
+            !rows[i].startsWith("teacher_restrictions") &&
+            !rows[i].startsWith("group_info")
+          ) {
+            const fields = rows[i].split(",").map((item) => item.trim());
+            console.log(`Обробка заняття, рядок ${i + 1}:`, fields); // Логування
+            if (fields.length !== 6) {
+              console.error(
+                `Рядок ${i + 1} має неправильну кількість полів (${
+                  fields.length
+                } замість 6):`,
+                rows[i]
+              );
+              i++;
+              continue;
+            }
+            const [group, subject, teacher, type, link, totalHours] = fields;
+            if (group && subject && teacher && type && totalHours) {
+              const totalHoursNum = parseInt(totalHours);
+              const weeklyCountNum = Math.floor(totalHoursNum / semesterWeeks);
+              const validTypes = ["лекція", "лабораторна", "практика"];
+              if (
+                groups.some((g) => g.name === group) &&
+                validTypes.includes(type) &&
+                !isNaN(totalHoursNum) &&
+                totalHoursNum > 0 &&
+                weeklyCountNum <= MAX_PAIRS_PER_DAY
+              ) {
+                pendingLessons.push({
+                  group,
+                  subject,
+                  teacher,
+                  type,
+                  link,
+                  totalHours: totalHoursNum,
+                  weeklyCount: weeklyCountNum,
+                  duration: PAIR_DURATION_MINUTES,
+                });
+              } else {
+                console.warn(
+                  `Невалідні дані в рядку ${
+                    i + 1
+                  }: group=${group}, type=${type}, totalHours=${totalHours}, weeklyCount=${weeklyCountNum}`
+                );
+              }
+            } else {
+              console.warn(
+                `Порожні або відсутні поля в рядку ${i + 1}:`,
+                fields
+              );
+            }
+            i++;
           }
         } else {
-          console.warn(
-            `Неправильний формат для викладача у рядку ${i + 1}: ${rows[i]}`
-          );
-        }
-        i++;
-      }
-
-      // Зчитуємо групи з CSV
-      while (i < rows.length && rows[i].startsWith("group_info")) {
-        const fields = rows[i].split(",").map((item) => item.trim());
-        if (fields.length !== 3) {
-          console.error(
-            `Рядок ${i + 1} має неправильну кількість полів (${
-              fields.length
-            } замість 3):`,
-            rows[i]
-          );
           i++;
-          continue;
         }
-        const [, group, subject] = fields;
-        if (group && subject) {
-          groups.push({ name: group, subject });
-        }
-        i++;
-      }
-
-      // Перевіряємо, чи перейшли до секції занять
-      if (i < rows.length) {
-        const lessonHeaders = rows[i].split(",").map((header) => header.trim());
-        isLessonSection =
-          lessonHeaders[0] === "group" && lessonHeaders.length === 6;
-        if (!isLessonSection) {
-          alert(
-            "Неправильний формат CSV для занять. Очікується: group,subject,teacher,type,link,weeklyCount"
-          );
-          return;
-        }
-        i++;
       }
 
       // Групуємо заняття за предметом, викладачем і типом
       const lessonsByKey = {};
-      for (; i < rows.length; i++) {
-        const fields = rows[i].split(",").map((item) => item.trim());
-        if (fields.length !== 6) {
-          console.error(
-            `Рядок ${i + 1} має неправильну кількість полів (${
-              fields.length
-            } замість 6):`,
-            rows[i]
-          );
-          continue;
+      pendingLessons.forEach((lesson) => {
+        const key = `${lesson.subject}|${lesson.teacher}|${lesson.type}`;
+        if (!lessonsByKey[key]) {
+          lessonsByKey[key] = [];
         }
-        const [group, subject, teacher, type, link, weeklyCount] = fields;
-        if (group && subject && teacher && type && link && weeklyCount) {
-          const weeklyCountNum = parseInt(weeklyCount);
-          const validTypes = ["лекція", "лабораторна", "практика"];
-          if (
-            groups.some((g) => g.name === group) &&
-            validTypes.includes(type) &&
-            !isNaN(weeklyCountNum) &&
-            weeklyCountNum > 0 &&
-            weeklyCountNum <= 5
-          ) {
-            const key = `${subject}|${teacher}|${type}`; // Унікальний ключ для групування
-            if (!lessonsByKey[key]) {
-              lessonsByKey[key] = [];
-            }
-            lessonsByKey[key].push({
-              group,
-              subject,
-              teacher,
-              type,
-              link,
-              weeklyCount: weeklyCountNum,
-            });
-          }
-        }
-      }
+        lessonsByKey[key].push(lesson);
+      });
+
+      console.log("Згруповані заняття (lessonsByKey):", lessonsByKey);
 
       // Розподіляємо заняття
       for (const key in lessonsByKey) {
@@ -295,7 +368,6 @@ function handleFileImport(event) {
         const firstLesson = lessons[0];
         const weeklyCountNum = firstLesson.weeklyCount;
 
-        // Отримуємо обмеження для викладача
         const teacherRestriction = teacherRestrictions.find(
           (tr) => tr.teacher === firstLesson.teacher
         );
@@ -307,11 +379,9 @@ function handleFileImport(event) {
           : [0, 1, 2, 3, 4];
         const allDays = [0, 1, 2, 3, 4];
 
-        // Якщо кілька груп мають однаковий предмет, викладача і тип
         if (lessons.length > 1) {
           const assignedSlots = [];
 
-          // Знаходимо вільні слоти для викладача
           const slots = findFreeSlot(
             firstLesson.teacher,
             allowedPairs,
@@ -319,7 +389,7 @@ function handleFileImport(event) {
             allDays,
             weeklyCountNum,
             importedSchedule,
-            lessons.every((lesson) => lesson.type === "лекція") // Лекції розміщуємо послідовно
+            lessons.every((lesson) => lesson.type === "лекція")
           );
 
           if (!slots) {
@@ -329,7 +399,6 @@ function handleFileImport(event) {
             continue;
           }
 
-          // Розміщуємо заняття для всіх груп у знайдені слоти
           slots.forEach((slot, index) => {
             lessons.forEach((lesson) => {
               assignedSlots.push({
@@ -338,6 +407,9 @@ function handleFileImport(event) {
                 teacher: lesson.teacher,
                 type: lesson.type,
                 link: lesson.link,
+                totalHours: lesson.totalHours,
+                weeklyCount: lesson.weeklyCount,
+                duration: lesson.duration,
                 day: slot.day,
                 pair: slot.pair,
               });
@@ -346,10 +418,8 @@ function handleFileImport(event) {
 
           importedSchedule.push(...assignedSlots);
         } else {
-          // Якщо предмет унікальний для однієї групи
           const assignedSlots = [];
 
-          // Знаходимо вільні слоти для викладача
           const slots = findFreeSlot(
             firstLesson.teacher,
             allowedPairs,
@@ -357,7 +427,7 @@ function handleFileImport(event) {
             allDays,
             weeklyCountNum,
             importedSchedule,
-            firstLesson.type === "лекція" // Лекції розміщуємо послідовно
+            firstLesson.type === "лекція"
           );
 
           if (!slots) {
@@ -374,6 +444,9 @@ function handleFileImport(event) {
               teacher: firstLesson.teacher,
               type: firstLesson.type,
               link: firstLesson.link,
+              totalHours: firstLesson.totalHours,
+              weeklyCount: firstLesson.weeklyCount,
+              duration: firstLesson.duration,
               day: slot.day,
               pair: slot.pair,
             });
@@ -383,6 +456,8 @@ function handleFileImport(event) {
         }
       }
 
+      console.log("Згенерований розклад (importedSchedule):", importedSchedule); // Логування розкладу
+
       if (importedSchedule.length === 0) {
         alert("Не знайдено валідних даних про заняття у файлі.");
         return;
@@ -390,8 +465,13 @@ function handleFileImport(event) {
 
       event.target.value = "";
     } catch (error) {
+      console.error("Помилка при обробці CSV:", error); // Детальніше логування помилки
       alert("Помилка при обробці файлу: " + error.message);
     }
+  };
+  reader.onerror = function (e) {
+    console.error("Помилка читання файлу:", e); // Логування помилки читання
+    alert("Не вдалося прочитати файл: " + e.message);
   };
   reader.readAsText(file);
 }
@@ -404,7 +484,7 @@ function generateSchedule() {
   const table = document.getElementById("scheduleTable");
   const searchBar = document.querySelector(".search-bar");
   table.style.display = "table";
-  searchBar.style.display = "block"; // Показуємо рядок пошуку
+  searchBar.style.display = "block";
   document.getElementById("generateButton").style.display = "none";
   document.getElementById("importButton").style.display = "none";
   document.getElementById("clearTableButton").style.display = "inline-block";
@@ -417,17 +497,15 @@ function generateSchedule() {
 function clearTable() {
   const table = document.getElementById("scheduleTable");
   const searchBar = document.querySelector(".search-bar");
-  table.style.display = "table"; // Залишаємо таблицю видимою
-  searchBar.style.display = "none"; // Приховуємо рядок пошуку
+  table.style.display = "table";
+  searchBar.style.display = "none";
 
-  // Очищаємо лише вміст розкладу, зберігаючи структуру
-  const subjectRow = table.children[0]; // Перший рядок із заголовками спеціальностей
-  const groupRow = table.children[1]; // Другий рядок із номерами груп
+  const subjectRow = table.children[0];
+  const groupRow = table.children[1];
   table.innerHTML = "";
   table.appendChild(subjectRow);
   table.appendChild(groupRow);
 
-  // Відновлюємо структуру таблиці (дні тижня і пари)
   daysOfWeek.forEach((day, dayIndex) => {
     for (let pair = 1; pair <= 6; pair++) {
       const row = document.createElement("tr");
@@ -438,20 +516,17 @@ function clearTable() {
 
       row.innerHTML += `<td>${pair}</td>`;
 
-      // Додаємо порожні клітинки для кожної групи
       row.innerHTML += groups.map(() => `<td></td>`).join("");
 
       table.appendChild(row);
     }
   });
 
-  // Залишаємо кнопки видимими
   document.getElementById("clearTableButton").style.display = "inline-block";
   document.getElementById("exportButton").style.display = "inline-block";
   document.getElementById("backButton").style.display = "inline-block";
   document.getElementById("editTableButton").style.display = "none";
 
-  // Приховуємо спливаючий блок із результатами пошуку
   document.getElementById("searchResults").style.display = "none";
 }
 
@@ -460,14 +535,13 @@ function backToGenerate() {
   const searchBar = document.querySelector(".search-bar");
   table.style.display = "none";
   table.innerHTML = "";
-  searchBar.style.display = "none"; // Приховуємо рядок пошуку
+  searchBar.style.display = "none";
   document.getElementById("generateButton").style.display = "inline-block";
   document.getElementById("importButton").style.display = "inline-block";
   document.getElementById("clearTableButton").style.display = "none";
   document.getElementById("exportButton").style.display = "none";
   document.getElementById("backButton").style.display = "none";
   document.getElementById("editTableButton").style.display = "none";
-  // Приховуємо спливаючий блок із результатами пошуку
   document.getElementById("searchResults").style.display = "none";
 }
 
@@ -476,7 +550,6 @@ function toggleEditMode() {
   const cells = table.getElementsByTagName("td");
 
   if (!isEditMode) {
-    // Вмикаємо режим редагування
     for (let i = 2; i < table.rows.length; i++) {
       const row = table.rows[i];
       const dayIndex = Math.floor((i - 2) / 6);
@@ -525,7 +598,6 @@ function toggleEditMode() {
       "Завершити редагування";
     isEditMode = true;
   } else {
-    // Вимикаємо режим редагування
     for (let cell of cells) {
       const inputs = cell.getElementsByTagName("input");
       if (inputs.length === 4) {
@@ -580,12 +652,10 @@ function saveEdit(button) {
     const type = inputs[2].value || "Немає типу";
     let link = inputs[3].value || "";
 
-    // Отримуємо координати клітинки
     const day = parseInt(cell.getAttribute("data-day"));
     const pair = parseInt(cell.getAttribute("data-pair"));
     const group = cell.getAttribute("data-group");
 
-    // Оновлюємо importedSchedule
     const scheduleIndex = importedSchedule.findIndex(
       (entry) =>
         entry.group === group && entry.day === day && entry.pair === pair
@@ -600,7 +670,6 @@ function saveEdit(button) {
       };
     }
 
-    // Оновлюємо відображення клітинки з правильною структурою
     let linkContent = "";
     if (link && (link.startsWith("http://") || link.startsWith("https://"))) {
       linkContent = `<a href="${link}" target="_blank" class="schedule-item">Посилання</a>`;
@@ -634,7 +703,6 @@ function renderTable(generatedSchedule) {
   const table = document.getElementById("scheduleTable");
   table.innerHTML = "";
 
-  // Рядок із заголовками спеціальностей
   const subjectRow = document.createElement("tr");
   subjectRow.innerHTML = `
     <th rowspan="2" class="day-column">Дні тижня</th>
@@ -643,12 +711,10 @@ function renderTable(generatedSchedule) {
   `;
   table.appendChild(subjectRow);
 
-  // Рядок із номерами груп
   const groupRow = document.createElement("tr");
   groupRow.innerHTML = groups.map((group) => `<th>${group.name}</th>`).join("");
   table.appendChild(groupRow);
 
-  // Заповнення таблиці
   daysOfWeek.forEach((day, dayIndex) => {
     for (let pair = 1; pair <= 6; pair++) {
       const row = document.createElement("tr");
@@ -902,5 +968,5 @@ document.getElementById("searchInput").addEventListener("input", () => {
 // Обробник для кнопки закриття спливаючого блоку
 document.getElementById("closeResultsButton").addEventListener("click", () => {
   document.getElementById("searchResults").style.display = "none";
-  document.getElementById("searchInput").value = ""; // Очищаємо поле пошуку
+  document.getElementById("searchInput").value = "";
 });
