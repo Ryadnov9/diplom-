@@ -441,7 +441,6 @@ function backToGenerate() {
     (id) => (document.getElementById(id).style.display = "inline-block")
   );
   [
-    "clearTableButton",
     "exportButton",
     "backButton",
     "editTableButton",
@@ -510,25 +509,26 @@ function checkConflicts() {
       }
 
   if (conflictsFound) {
-    const buttonGroupRect = document
-      .querySelector(".button-group")
+    // Позиціонуємо #conflictResults нижче .search-bar
+    const searchBarRect = document
+      .querySelector(".search-bar")
       .getBoundingClientRect();
     conflictResults.style.top = `${
-      buttonGroupRect.bottom + window.scrollY + 10
+      searchBarRect.bottom + window.scrollY + 10
     }px`;
     conflictResults.style.display = "block";
   } else {
     conflictResultsContent.innerHTML = "<p>Накладок не знайдено.</p>";
-    const buttonGroupRect = document
-      .querySelector(".button-group")
+    // Позиціонуємо #conflictResults нижче .search-bar
+    const searchBarRect = document
+      .querySelector(".search-bar")
       .getBoundingClientRect();
     conflictResults.style.top = `${
-      buttonGroupRect.bottom + window.scrollY + 10
+      searchBarRect.bottom + window.scrollY + 10
     }px`;
     conflictResults.style.display = "block";
   }
 }
-
 // Редагування таблиці
 function toggleEditMode() {
   const table = document.getElementById("scheduleTable");
