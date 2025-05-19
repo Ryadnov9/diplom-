@@ -3,23 +3,25 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Генерація розкладу</title>
-    <link rel="stylesheet" href="style.css" />
+    <title>Розклад занять</title>
     <link
       href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap"
       rel="stylesheet"
     />
+    <link rel="stylesheet" href="style.css" />
   </head>
   <body>
     <div class="container">
       <header>
-        <h1>Генерація розкладу</h1>
+        <h1>Розклад занять</h1>
       </header>
-
-      <section class="main-section">
+      <div class="main-section">
         <div class="button-group">
           <button id="generateButton" class="btn btn-generate">
-            Сгенерувати розклад
+            Згенерувати розклад
+          </button>
+          <button id="importButton" class="btn btn-import">
+            Імпортувати CSV
           </button>
           <button
             id="clearTableButton"
@@ -28,18 +30,15 @@
           >
             Очистити таблицю
           </button>
-          <button id="importButton" class="btn btn-import">
-            Імпортувати файл
-          </button>
           <button
             id="exportButton"
             class="btn btn-export"
             style="display: none"
           >
-            Експортувати таблицю
+            Експортувати
           </button>
           <button id="backButton" class="btn btn-back" style="display: none">
-            Повернутися до генерації
+            Назад
           </button>
           <button
             id="editTableButton"
@@ -48,29 +47,45 @@
           >
             Редагувати таблицю
           </button>
+          <button
+            id="checkConflictsButton"
+            class="btn btn-check-conflicts"
+            style="display: none"
+          >
+            Перевірити накладки
+          </button>
         </div>
         <input type="file" id="fileInput" accept=".csv" style="display: none" />
         <div class="search-bar" style="display: none">
           <input
             type="text"
             id="searchInput"
-            placeholder="Пошук у таблиці (предмет, викладач, номер групи)"
+            placeholder="Пошук за групою, викладачем, предметом..."
           />
         </div>
-        <div class="table-wrapper">
-          <table id="scheduleTable" style="display: none"></table>
+        <div class="search-results" id="searchResults">
+          <div class="search-results-header">
+            <h3>Результати пошуку</h3>
+            <button id="closeResultsButton">×</button>
+          </div>
+          <div id="searchResultsContent"></div>
         </div>
-      </section>
-    </div>
-
-    <div id="searchResults" class="search-results">
-      <div class="search-results-header">
-        <h3>Результати пошуку</h3>
-        <button id="closeResultsButton">✖</button>
+        <div
+          class="conflict-results"
+          id="conflictResults"
+          style="display: none"
+        >
+          <div class="conflict-results-header">
+            <h3>Результати перевірки накладок</h3>
+            <button id="closeConflictResultsButton">×</button>
+          </div>
+          <div id="conflictResultsContent"></div>
+        </div>
+        <div class="table-wrapper">
+          <table id="scheduleTable"></table>
+        </div>
       </div>
-      <div id="searchResultsContent"></div>
     </div>
-
     <script src="script.js"></script>
   </body>
 </html>
