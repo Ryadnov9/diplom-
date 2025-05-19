@@ -13,9 +13,8 @@ let isEditMode = false;
 document
   .getElementById("generateButton")
   .addEventListener("click", generateSchedule);
-document
-  .getElementById("clearTableButton")
-  .addEventListener("click", clearTable);
+// Видаляємо обробник для clearTableButton
+// document.getElementById("clearTableButton").addEventListener("click", clearTable);
 document.getElementById("backButton").addEventListener("click", backToGenerate);
 document
   .getElementById("importButton")
@@ -407,22 +406,20 @@ function handleFileImport(event) {
 
 // Генерація розкладу
 function generateSchedule() {
-  if (importedSchedule.length === 0) return;
+  console.log("Generating schedule with:", importedSchedule); // Діагностика
   const table = document.getElementById("scheduleTable");
   const searchBar = document.querySelector(".search-bar");
-  table.style.display = "table";
+  table.style.display = "table"; // Переконаємося, що таблиця видима
   searchBar.style.display = "block";
   [
     "generateButton",
     "importButton",
-    "clearTableButton",
     "exportButton",
     "backButton",
     "editTableButton",
     "checkConflictsButton",
   ].forEach((id) => {
     document.getElementById(id).style.display =
-      id === "clearTableButton" ||
       id === "exportButton" ||
       id === "backButton" ||
       id === "editTableButton" ||
@@ -431,44 +428,6 @@ function generateSchedule() {
         : "none";
   });
   renderTable(importedSchedule);
-}
-
-// Очищення таблиці
-function clearTable() {
-  const table = document.getElementById("scheduleTable");
-  const searchBar = document.querySelector(".search-bar");
-  const subjectRow = table.children[0];
-  const groupRow = table.children[1];
-  table.innerHTML = "";
-  table.appendChild(subjectRow);
-  table.appendChild(groupRow);
-  daysOfWeek.forEach((day, dayIndex) => {
-    for (let pair = 1; pair <= 6; pair++) {
-      const row = document.createElement("tr");
-      if (pair === 1)
-        row.innerHTML += `<td class="day-column day-${
-          dayIndex + 1
-        }" rowspan="6">${day}</td>`;
-      row.innerHTML += `<td>${pair}</td>${groups
-        .map(() => `<td></td>`)
-        .join("")}`;
-      table.appendChild(row);
-    }
-  });
-  [
-    "clearTableButton",
-    "exportButton",
-    "backButton",
-    "checkConflictsButton",
-  ].forEach(
-    (id) => (document.getElementById(id).style.display = "inline-block")
-  );
-  ["editTableButton"].forEach(
-    (id) => (document.getElementById(id).style.display = "none")
-  );
-  ["searchResults", "conflictResults"].forEach(
-    (id) => (document.getElementById(id).style.display = "none")
-  );
 }
 
 // Повернення до генерації
@@ -737,6 +696,7 @@ function saveEdit(button) {
 
 // Рендер таблиці
 function renderTable(generatedSchedule) {
+  console.log("Rendering table with:", generatedSchedule); // Діагностика
   const table = document.getElementById("scheduleTable");
   table.innerHTML = `<tr><th rowspan="2" class="day-column">Дні тижня</th><th rowspan="2">№ пари</th>${groups
     .map((group) => `<th>${group.subject}</th>`)

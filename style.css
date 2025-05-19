@@ -198,27 +198,28 @@ td a:hover {
   left: 0;
   z-index: 1;
   overflow: hidden;
+  position: relative;
 }
 
 /* Різні кольори для кожного дня тижня */
 .day-column.day-1 {
-  background-color: #a3cffa;
+  background-color: #67acf1;
 }
 
 .day-column.day-2 {
-  background-color: #f5a9b8;
+  background-color: #f67791;
 }
 
 .day-column.day-3 {
-  background-color: #b8e1a3;
+  background-color: #e46853;
 }
 
 .day-column.day-4 {
-  background-color: #f7e3a1;
+  background-color: #e5c96a;
 }
 
 .day-column.day-5 {
-  background-color: #d4a5e5;
+  background-color: #794f89;
 }
 
 .search-results {
