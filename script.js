@@ -825,33 +825,8 @@ function searchTable() {
           dayHeader.innerHTML = `<strong>${day}</strong>`;
           searchResultsContent.appendChild(dayHeader);
           dayEntries.forEach((entry) => {
-            const linkContent =
-              entry.link &&
-              (entry.link.startsWith("http://") ||
-                entry.link.startsWith("https://"))
-                ? `<a href="${entry.link}" target="_blank">Посилання</a>`
-                : entry.link
-                ? entry.link.match(/код:\s*(\S+)/i) &&
-                  entry.link.match(/пароль:\s*(\S+)/i)
-                  ? `<span>Код: ${entry.link
-                      .match(/код:\s*(\S+)/i)[1]
-                      .trim()}</span><br><span>Пароль: ${entry.link
-                      .match(/пароль:\s*(\S+)/i)[1]
-                      .trim()}</span>`
-                  : entry.link.match(/код:\s*(\S+)/i)
-                  ? `<span>Код: ${entry.link
-                      .match(/код:\s*(\S+)/i)[1]
-                      .trim()}</span>`
-                  : `<span>${entry.link}</span>`
-                : "";
             const resultItem = document.createElement("p");
-            resultItem.innerHTML = `<strong>Пара:</strong> ${
-              entry.pair
-            }, <span>${entry.subject}</span>, <span>${
-              entry.teacher
-            }</span>, <span>${entry.type}</span>${
-              linkContent ? `, ${linkContent}` : ""
-            }`;
+            resultItem.innerHTML = `<strong>Пара:</strong> ${entry.pair}, <span>${entry.subject}</span>, <span>${entry.teacher}</span>, <span>${entry.type}</span>`;
             searchResultsContent.appendChild(resultItem);
           });
         }
@@ -861,12 +836,17 @@ function searchTable() {
     const displayedResults = new Set();
     for (let i = 2; i < rows.length; i++) {
       const row = rows[i];
+      const hasDayCell = row.querySelector(".day-column") !== null;
+      const shift = hasDayCell ? 0 : 1;
       const cells = row.getElementsByTagName("td");
       const dayIndex = Math.floor((i - 2) / 6);
       const pair = ((i - 2) % 6) + 1;
       const day = daysOfWeek[dayIndex];
-      for (let j = 2; j < cells.length; j++) {
-        const cell = cells[j];
+
+      for (let j = 2; j < groups.length + 2; j++) {
+        const cell = cells[j - shift];
+        if (!cell) continue;
+
         const spans = cell.getElementsByTagName("span");
         if (spans.length >= 3) {
           const [subjectText, teacherText, typeText] = [
@@ -876,41 +856,27 @@ function searchTable() {
           ].map((text) =>
             (text || "").toLowerCase().trim().replace(/\s+/g, " ")
           );
+
           const normalizedTeacherText = teacherText
             .replace(
-              /проф\.\s*|доц\.\s*|ст\.викл\.\s*|викл\.\s*|\s*[а-я]\.[а-я]\./g,
+              /проф\.|доц\.|ст\.викл\.|викл\.|[а-яґєіїʼ'’]\.[а-яґєіїʼ'’]\.*/gi,
               ""
             )
             .trim();
+
           if (
-            [
-              `${subjectText} ${normalizedTeacherText} ${typeText}`,
-              `${subjectText} ${teacherText} ${typeText}`,
-            ].some((text) => text.includes(searchText))
+            subjectText.includes(searchText) ||
+            teacherText.includes(searchText) ||
+            normalizedTeacherText.includes(searchText) ||
+            typeText.includes(searchText)
           ) {
             matchesFound = true;
+            const groupName = groups[j - 2].name;
             const resultKey = `${i}|${j}|${subjectText} ${teacherText} ${typeText}`;
             if (!displayedResults.has(resultKey)) {
               displayedResults.add(resultKey);
-              const groupName = groups[j - 2].name;
               const resultItem = document.createElement("p");
-              resultItem.innerHTML = `<strong>День:</strong> ${day}, <strong>Пара:</strong> ${pair}, <strong>Група:</strong> ${groupName}, <span>${
-                spans[0].textContent
-              }</span>, <span>${spans[1].textContent}</span>, <span>${
-                spans[2].textContent
-              }</span>${
-                cell.querySelector("a")
-                  ? `, <a href="${
-                      cell.querySelector("a").href
-                    }" target="_blank">Посилання</a>`
-                  : cell
-                      .querySelector(".schedule-item")
-                      ?.textContent.includes("Код:")
-                  ? `, <span>${
-                      cell.querySelector(".schedule-item").textContent
-                    }</span>`
-                  : ""
-              }`;
+              resultItem.innerHTML = `<strong>День:</strong> ${day}, <strong>Пара:</strong> ${pair}, <strong>Група:</strong> ${groupName}, <span>${spans[0].textContent}</span>, <span>${spans[1].textContent}</span>, <span>${spans[2].textContent}</span>`;
               searchResultsContent.appendChild(resultItem);
             }
           }
