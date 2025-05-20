@@ -23,7 +23,6 @@
           <button id="importButton" class="btn btn-import">
             Імпортувати CSV
           </button>
-          <!-- Видалено кнопку clearTableButton -->
           <button
             id="exportButton"
             class="btn btn-export"
@@ -49,7 +48,9 @@
             Перевірити накладки
           </button>
         </div>
+
         <input type="file" id="fileInput" accept=".csv" style="display: none" />
+
         <div class="search-bar" style="display: none">
           <input
             type="text"
@@ -57,6 +58,7 @@
             placeholder="Пошук за групою, викладачем, предметом..."
           />
         </div>
+
         <div class="search-results" id="searchResults">
           <div class="search-results-header">
             <h3>Результати пошуку</h3>
@@ -64,6 +66,7 @@
           </div>
           <div id="searchResultsContent"></div>
         </div>
+
         <div
           class="conflict-results"
           id="conflictResults"
@@ -75,11 +78,13 @@
           </div>
           <div id="conflictResultsContent"></div>
         </div>
+
         <div class="table-wrapper">
           <table id="scheduleTable"></table>
         </div>
       </div>
     </div>
+
     <script src="script.js"></script>
   </body>
 </html>

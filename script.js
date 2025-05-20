@@ -539,31 +539,47 @@ function toggleEditMode() {
       const row = table.rows[i];
       const dayIndex = Math.floor((i - 2) / 6);
       const pair = ((i - 2) % 6) + 1;
-      for (let j = 2; j < row.cells.length; j++) {
-        const cell = row.cells[j];
+
+      const hasDayCell = pair === 1;
+      const shift = hasDayCell ? 0 : 1;
+
+      for (let j = 2; j < groups.length + 2; j++) {
+        const cell = row.cells[j - shift];
+        if (!cell) continue;
+
         const group = groups[j - 2].name;
         let subject = "",
           teacher = "",
           type = "",
           link = "";
-        const spans = cell.getElementsByTagName("span");
-        if (spans.length >= 3) {
-          subject = spans[0].textContent || "";
-          teacher = spans[1].textContent || "";
-          type = spans[2].textContent || "";
+
+        if (cell.querySelector(".schedule-entry")) {
+          const spans = cell.getElementsByTagName("span");
+          if (spans.length >= 3) {
+            subject = spans[0].textContent || "";
+            teacher = spans[1].textContent || "";
+            type = spans[2].textContent || "";
+          }
           const linkElement = cell.querySelector("a");
           if (linkElement) link = linkElement.href || "";
-          else
-            for (let span of cell.getElementsByTagName("span"))
+          else {
+            for (let span of spans) {
               if (span.textContent.startsWith("Код:"))
                 link += span.textContent.replace("Код: ", "") + " ";
               else if (span.textContent.startsWith("Пароль:"))
                 link += "Пароль: " + span.textContent.replace("Пароль: ", "");
+            }
+          }
         }
+
         cell.setAttribute("data-day", dayIndex);
         cell.setAttribute("data-pair", pair);
         cell.setAttribute("data-group", group);
-        cell.innerHTML = `<input type="text" value="${subject}" placeholder="Предмет"><br><input type="text" value="${teacher}" placeholder="Викладач"><br><input type="text" value="${type}" placeholder="Тип"><br><input type="text" value="${link}" placeholder="Посилання/Код"><br><button class="save-btn" onclick="saveEdit(this)">Зберегти</button>`;
+        cell.innerHTML = `<input type="text" value="${subject}" placeholder="Предмет"><br>
+  <input type="text" value="${teacher}" placeholder="Викладач"><br>
+  <input type="text" value="${type}" placeholder="Тип"><br>
+  <input type="text" value="${link}" placeholder="Посилання/Код"><br>
+  <button class="save-btn" onclick="saveEdit(this)">Зберегти</button>`;
       }
     }
     document.getElementById("editTableButton").textContent =
@@ -696,7 +712,8 @@ function saveEdit(button) {
 
 // Рендер таблиці
 function renderTable(generatedSchedule) {
-  console.log("Rendering table with:", generatedSchedule); // Діагностика
+  console.log("Groups:", groups);
+  console.log("Imported schedule:", generatedSchedule);
   const table = document.getElementById("scheduleTable");
   table.innerHTML = `<tr><th rowspan="2" class="day-column">Дні тижня</th><th rowspan="2">№ пари</th>${groups
     .map((group) => `<th>${group.subject}</th>`)
@@ -743,6 +760,12 @@ function renderTable(generatedSchedule) {
             }</span><span class="schedule-item">${
               entry.type || "Немає типу"
             }</span>${linkContent}</div>`;
+          } else {
+            td.innerHTML = `<div class="schedule-entry">
+              <span class="schedule-item"></span>
+              <span class="schedule-item"></span>
+              <span class="schedule-item"></span>
+            </div>`;
           }
           return td.outerHTML;
         })
