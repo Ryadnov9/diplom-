@@ -4,18 +4,20 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Розклад занять</title>
+    <link rel="stylesheet" href="style.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
     <link
       href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="style.css" />
   </head>
   <body>
     <div class="container">
       <header>
         <h1>Розклад занять</h1>
       </header>
-      <div class="main-section">
+      <main class="main-section">
         <div class="button-group">
           <button id="generateButton" class="btn btn-generate">
             Згенерувати розклад
@@ -23,6 +25,12 @@
           <button id="importButton" class="btn btn-import">
             Імпортувати CSV
           </button>
+          <input
+            type="file"
+            id="fileInput"
+            accept=".csv"
+            style="display: none"
+          />
           <button
             id="exportButton"
             class="btn btn-export"
@@ -48,43 +56,44 @@
             Перевірити накладки
           </button>
         </div>
-
-        <input type="file" id="fileInput" accept=".csv" style="display: none" />
-
         <div class="search-bar" style="display: none">
           <input
             type="text"
             id="searchInput"
-            placeholder="Пошук за групою, викладачем, предметом..."
+            placeholder="Пошук за групою, предметом або викладачем"
           />
         </div>
-
-        <div class="search-results" id="searchResults">
+        <div class="table-wrapper">
+          <table id="scheduleTable" style="display: none"></table>
+        </div>
+        <div id="searchResults" class="search-results">
           <div class="search-results-header">
             <h3>Результати пошуку</h3>
             <button id="closeResultsButton">×</button>
           </div>
           <div id="searchResultsContent"></div>
         </div>
-
-        <div
-          class="conflict-results"
-          id="conflictResults"
-          style="display: none"
-        >
+        <div id="conflictResults" class="conflict-results">
           <div class="conflict-results-header">
             <h3>Результати перевірки накладок</h3>
             <button id="closeConflictResultsButton">×</button>
           </div>
           <div id="conflictResultsContent"></div>
         </div>
-
-        <div class="table-wrapper">
-          <table id="scheduleTable"></table>
+        <div id="exportOptions" class="export-options">
+          <div class="export-options-header">
+            <h3>Опції експорту</h3>
+            <button id="closeExportOptionsButton">×</button>
+          </div>
+          <button id="exportExcelButton" class="btn btn-export">
+            Експортувати в Excel
+          </button>
+          <button id="exportPDFButton" class="btn btn-export">
+            Експортувати в PDF
+          </button>
         </div>
-      </div>
+      </main>
     </div>
-
     <script src="script.js"></script>
   </body>
 </html>

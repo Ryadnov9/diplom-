@@ -1,20 +1,15 @@
-// Константи
 const daysOfWeek = ["Понеділок", "Вівторок", "Середа", "Четвер", "П’ятниця"];
 const PAIR_DURATION_MINUTES = 80;
 const MAX_PAIRS_PER_DAY = 6;
 
-// Глобальні змінні
 let groups = [];
 let importedSchedule = [];
 let teacherRestrictions = [];
 let isEditMode = false;
 
-// Додавання обробників подій
 document
   .getElementById("generateButton")
   .addEventListener("click", generateSchedule);
-// Видаляємо обробник для clearTableButton
-// document.getElementById("clearTableButton").addEventListener("click", clearTable);
 document.getElementById("backButton").addEventListener("click", backToGenerate);
 document
   .getElementById("importButton")
@@ -41,8 +36,78 @@ document.getElementById("closeResultsButton").addEventListener("click", () => {
   document.getElementById("searchInput").value = "";
 });
 document.getElementById("searchInput").addEventListener("input", searchTable);
+document
+  .getElementById("exportButton")
+  .addEventListener("click", showExportOptions);
+document
+  .getElementById("closeExportOptionsButton")
+  .addEventListener(
+    "click",
+    () => (document.getElementById("exportOptions").style.display = "none")
+  );
 
-// Функція перевірки вільного слота для викладача
+// Excel export placeholder (to be implemented later)
+document.getElementById("exportExcelButton").addEventListener("click", () => {
+  console.log("Excel export function not implemented yet.");
+});
+
+// PDF export using html2pdf.js (Unicode-compatible and full layout)
+document.getElementById("exportPDFButton").addEventListener("click", () => {
+  const element = document.getElementById("scheduleTable");
+
+  if (!element || element.style.display === "none") {
+    alert("Будь ласка, згенеруйте розклад перед експортом.");
+    return;
+  }
+
+  // Reset writing mode to horizontal temporarily for export clarity
+  const dayHeaders = element.querySelectorAll(".day-column");
+  dayHeaders.forEach((el) => {
+    el.style.writingMode = "horizontal-tb";
+    el.style.textOrientation = "initial";
+  });
+
+  const opt = {
+    margin: 10,
+    filename: "Розклад.pdf",
+    image: { type: "jpeg", quality: 1 },
+    html2canvas: {
+      scale: 3,
+      useCORS: true,
+      scrollX: 0,
+      scrollY: 0,
+      windowWidth: element.scrollWidth,
+      windowHeight: element.scrollHeight,
+    },
+    jsPDF: {
+      unit: "px",
+      format: [element.scrollWidth + 20, element.scrollHeight + 20],
+      orientation: "landscape",
+    },
+  };
+
+  html2pdf()
+    .set(opt)
+    .from(element)
+    .save()
+    .then(() => {
+      // Restore original vertical layout after export
+      dayHeaders.forEach((el) => {
+        el.style.writingMode = "vertical-rl";
+        el.style.textOrientation = "upright";
+      });
+    });
+});
+
+function showExportOptions() {
+  const exportOptions = document.getElementById("exportOptions");
+  const searchBarRect = document
+    .querySelector(".search-bar")
+    .getBoundingClientRect();
+  exportOptions.style.top = `${searchBarRect.bottom + window.scrollY + 10}px`;
+  exportOptions.style.display = "block";
+}
+
 function isTeacherSlotFree(teacher, day, pair, schedule) {
   return !schedule.some(
     (entry) =>
@@ -50,14 +115,12 @@ function isTeacherSlotFree(teacher, day, pair, schedule) {
   );
 }
 
-// Функція перевірки вільного слота для групи
 function isGroupSlotFree(group, day, pair, schedule) {
   return !schedule.some(
     (entry) => entry.group === group && entry.day === day && entry.pair === pair
   );
 }
 
-// Функція перевірки достатньої кількості вільних слотів для викладача
 function hasEnoughFreeSlotsForTeacher(teacher, day, weeklyCount, schedule) {
   let occupiedSlots = 0;
   for (let pair = 1; pair <= MAX_PAIRS_PER_DAY; pair++) {
@@ -66,7 +129,6 @@ function hasEnoughFreeSlotsForTeacher(teacher, day, weeklyCount, schedule) {
   return occupiedSlots + weeklyCount <= MAX_PAIRS_PER_DAY;
 }
 
-// Функція перевірки достатньої кількості вільних слотів для групи
 function hasEnoughFreeSlotsForGroup(group, day, weeklyCount, schedule) {
   let occupiedSlots = 0;
   for (let pair = 1; pair <= MAX_PAIRS_PER_DAY; pair++) {
@@ -75,7 +137,6 @@ function hasEnoughFreeSlotsForGroup(group, day, weeklyCount, schedule) {
   return occupiedSlots + weeklyCount <= MAX_PAIRS_PER_DAY;
 }
 
-// Функція пошуку вільного слота
 function findFreeSlot(
   teacher,
   groupsForLesson,
@@ -172,7 +233,6 @@ function findFreeSlot(
   return slots;
 }
 
-// Обробка імпорту CSV
 function handleFileImport(event) {
   const file = event.target.files[0];
   if (!file) {
@@ -238,15 +298,7 @@ function handleFileImport(event) {
                   ? allowedPairs
                       .split("-")
                       .map(Number)
-                      .reduce(
-                        (acc, curr, idx, arr) =>
-                          idx === 0 ? [curr] : [...acc, curr],
-                        []
-                      )
-                      .filter(
-                        (_, idx, arr) =>
-                          idx === 0 || arr[idx] <= arr[idx - 1] + 1
-                      )
+                      .filter((p, idx, arr) => idx === 0 || p <= arr[0] + 5)
                   : allowedPairs
                       .split(" ")
                       .map(Number)
@@ -404,12 +456,11 @@ function handleFileImport(event) {
   reader.readAsText(file);
 }
 
-// Генерація розкладу
 function generateSchedule() {
-  console.log("Generating schedule with:", importedSchedule); // Діагностика
+  console.log("Generating schedule with:", importedSchedule);
   const table = document.getElementById("scheduleTable");
   const searchBar = document.querySelector(".search-bar");
-  table.style.display = "table"; // Переконаємося, що таблиця видима
+  table.style.display = "table";
   searchBar.style.display = "block";
   [
     "generateButton",
@@ -420,17 +471,13 @@ function generateSchedule() {
     "checkConflictsButton",
   ].forEach((id) => {
     document.getElementById(id).style.display =
-      id === "exportButton" ||
-      id === "backButton" ||
-      id === "editTableButton" ||
-      id === "checkConflictsButton"
-        ? "inline-block"
-        : "none";
+      id === "generateButton" || id === "importButton"
+        ? "none"
+        : "inline-block";
   });
   renderTable(importedSchedule);
 }
 
-// Повернення до генерації
 function backToGenerate() {
   const table = document.getElementById("scheduleTable");
   const searchBar = document.querySelector(".search-bar");
@@ -445,13 +492,13 @@ function backToGenerate() {
     "backButton",
     "editTableButton",
     "checkConflictsButton",
+    "exportOptions",
   ].forEach((id) => (document.getElementById(id).style.display = "none"));
   ["searchResults", "conflictResults"].forEach(
     (id) => (document.getElementById(id).style.display = "none")
   );
 }
 
-// Перевірка накладок
 function checkConflicts() {
   const conflictResults = document.getElementById("conflictResults");
   const conflictResultsContent = document.getElementById(
@@ -509,7 +556,6 @@ function checkConflicts() {
       }
 
   if (conflictsFound) {
-    // Позиціонуємо #conflictResults нижче .search-bar
     const searchBarRect = document
       .querySelector(".search-bar")
       .getBoundingClientRect();
@@ -519,7 +565,6 @@ function checkConflicts() {
     conflictResults.style.display = "block";
   } else {
     conflictResultsContent.innerHTML = "<p>Накладок не знайдено.</p>";
-    // Позиціонуємо #conflictResults нижче .search-bar
     const searchBarRect = document
       .querySelector(".search-bar")
       .getBoundingClientRect();
@@ -529,7 +574,7 @@ function checkConflicts() {
     conflictResults.style.display = "block";
   }
 }
-// Редагування таблиці
+
 function toggleEditMode() {
   const table = document.getElementById("scheduleTable");
   const cells = table.getElementsByTagName("td");
@@ -576,10 +621,10 @@ function toggleEditMode() {
         cell.setAttribute("data-pair", pair);
         cell.setAttribute("data-group", group);
         cell.innerHTML = `<input type="text" value="${subject}" placeholder="Предмет"><br>
-  <input type="text" value="${teacher}" placeholder="Викладач"><br>
-  <input type="text" value="${type}" placeholder="Тип"><br>
-  <input type="text" value="${link}" placeholder="Посилання/Код"><br>
-  <button class="save-btn" onclick="saveEdit(this)">Зберегти</button>`;
+        <input type="text" value="${teacher}" placeholder="Викладач"><br>
+        <input type="text" value="${type}" placeholder="Тип"><br>
+        <input type="text" value="${link}" placeholder="Посилання/Код"><br>
+        <button class="save-btn" onclick="saveEdit(this)">Зберегти</button>`;
       }
     }
     document.getElementById("editTableButton").textContent =
@@ -662,7 +707,6 @@ function toggleEditMode() {
   }
 }
 
-// Збереження змін у клітинці
 function saveEdit(button) {
   const cell = button.parentElement;
   const [subject, teacher, type, link] = [
@@ -710,7 +754,6 @@ function saveEdit(button) {
   cell.innerHTML = `<div class="schedule-entry"><span class="schedule-item">${subject}</span><span class="schedule-item">${teacher}</span><span class="schedule-item">${type}</span>${linkContent}</div>`;
 }
 
-// Рендер таблиці
 function renderTable(generatedSchedule) {
   console.log("Groups:", groups);
   console.log("Imported schedule:", generatedSchedule);
@@ -762,10 +805,10 @@ function renderTable(generatedSchedule) {
             }</span>${linkContent}</div>`;
           } else {
             td.innerHTML = `<div class="schedule-entry">
-              <span class="schedule-item"></span>
-              <span class="schedule-item"></span>
-              <span class="schedule-item"></span>
-            </div>`;
+                        <span class="schedule-item"></span>
+                        <span class="schedule-item"></span>
+                        <span class="schedule-item"></span>
+                        </div>`;
           }
           return td.outerHTML;
         })
@@ -775,7 +818,6 @@ function renderTable(generatedSchedule) {
   });
 }
 
-// Пошук у таблиці
 function searchTable() {
   const searchText = document
     .getElementById("searchInput")
