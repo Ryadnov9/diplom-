@@ -6,7 +6,6 @@
     <title>Розклад занять</title>
     <link rel="stylesheet" href="style.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-
     <link
       href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap"
       rel="stylesheet"
@@ -23,7 +22,7 @@
             Згенерувати розклад
           </button>
           <button id="importButton" class="btn btn-import">
-            Імпортувати CSV
+            Імпортувати файл
           </button>
           <input
             type="file"
@@ -90,6 +89,18 @@
           </button>
           <button id="exportPDFButton" class="btn btn-export">
             Експортувати в PDF
+          </button>
+        </div>
+        <div id="importOptions" class="export-options">
+          <div class="export-options-header">
+            <h3>Оберіть тип імпорту</h3>
+            <button id="closeImportOptionsButton">×</button>
+          </div>
+          <button class="btn btn-import" id="importCSVButton">
+            Імпорт CSV
+          </button>
+          <button class="btn btn-import" id="importSavedFileButton">
+            Імпорт збереженого файлу
           </button>
         </div>
       </main>

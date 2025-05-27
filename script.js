@@ -11,11 +11,26 @@ document
   .getElementById("generateButton")
   .addEventListener("click", generateSchedule);
 document.getElementById("backButton").addEventListener("click", backToGenerate);
+document.getElementById("importButton").addEventListener("click", () => {
+  document.getElementById("importOptions").style.display = "block";
+});
 document
-  .getElementById("importButton")
-  .addEventListener("click", () =>
-    document.getElementById("fileInput").click()
-  );
+  .getElementById("closeImportOptionsButton")
+  .addEventListener("click", () => {
+    document.getElementById("importOptions").style.display = "none";
+  });
+document.getElementById("importCSVButton").addEventListener("click", () => {
+  document.getElementById("importOptions").style.display = "none";
+  document.getElementById("fileInput").accept = ".csv";
+  document.getElementById("fileInput").click();
+});
+document
+  .getElementById("importSavedFileButton")
+  .addEventListener("click", () => {
+    document.getElementById("importOptions").style.display = "none";
+    document.getElementById("fileInput").accept = ".json,.txt";
+    document.getElementById("fileInput").click();
+  });
 document
   .getElementById("fileInput")
   .addEventListener("change", handleFileImport);
@@ -60,7 +75,6 @@ document.getElementById("exportPDFButton").addEventListener("click", () => {
     return;
   }
 
-  // Reset writing mode to horizontal temporarily for export clarity
   const dayHeaders = element.querySelectorAll(".day-column");
   dayHeaders.forEach((el) => {
     el.style.writingMode = "horizontal-tb";
@@ -91,7 +105,6 @@ document.getElementById("exportPDFButton").addEventListener("click", () => {
     .from(element)
     .save()
     .then(() => {
-      // Restore original vertical layout after export
       dayHeaders.forEach((el) => {
         el.style.writingMode = "vertical-rl";
         el.style.textOrientation = "upright";
