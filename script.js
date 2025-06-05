@@ -61,9 +61,67 @@ document
     () => (document.getElementById("exportOptions").style.display = "none")
   );
 
-// Excel export placeholder (to be implemented later)
+// Excel export via Python server
 document.getElementById("exportExcelButton").addEventListener("click", () => {
-  console.log("Excel export function not implemented yet.");
+  const table = document.getElementById("scheduleTable");
+
+  if (!table || table.style.display === "none") {
+    alert("Будь ласка, згенеруйте розклад перед експортом.");
+    return;
+  }
+
+  const rows = Array.from(table.rows).map((row) =>
+    Array.from(row.cells).map((cell) => cell.innerText)
+  );
+
+  fetch("http://localhost:5000/export_excel", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ table: rows }),
+  })
+    .then((response) => response.blob())
+    .then((blob) => {
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "Розклад.xlsx";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    })
+    .catch((error) => console.error("Помилка експорту в Excel:", error));
+});
+// Excel export via Python server
+document.getElementById("exportExcelButton").addEventListener("click", () => {
+  const table = document.getElementById("scheduleTable");
+
+  if (!table || table.style.display === "none") {
+    alert("Будь ласка, згенеруйте розклад перед експортом.");
+    return;
+  }
+
+  const rows = Array.from(table.rows).map((row) =>
+    Array.from(row.cells).map((cell) => cell.innerText)
+  );
+
+  fetch("http://localhost:5000/export_excel", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ table: rows }),
+  })
+    .then((response) => response.blob())
+    .then((blob) => {
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "Розклад.xlsx";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    })
+    .catch((error) => console.error("Помилка експорту в Excel:", error));
 });
 
 // PDF export using html2pdf.js (Unicode-compatible and full layout)
@@ -829,6 +887,31 @@ function renderTable(generatedSchedule) {
       table.appendChild(row);
     }
   });
+}
+
+function exportToExcelViaPython() {
+  const table = document.getElementById("scheduleTable");
+  const rows = Array.from(table.rows).map((row) =>
+    Array.from(row.cells).map((cell) => cell.innerText)
+  );
+
+  fetch("http://localhost:5000/export_excel", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ table: rows }),
+  })
+    .then((response) => response.blob())
+    .then((blob) => {
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "Розклад.xlsx";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    })
+    .catch((error) => console.error("Error exporting Excel:", error));
 }
 
 function searchTable() {
