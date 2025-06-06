@@ -61,67 +61,88 @@ document
     () => (document.getElementById("exportOptions").style.display = "none")
   );
 
-// Excel export via Python server
+//   // Excel export via Python server
+// document.getElementById("exportExcelButton").addEventListener("click", () => {
+//   const table = document.getElementById("scheduleTable");
+
+//   if (!table || table.style.display === "none") {
+//     alert("Будь ласка, згенеруйте розклад перед експортом.");
+//     return;
+//   }
+
+//   const rows = Array.from(table.rows).map((row) =>
+//     Array.from(row.cells).map((cell) => cell.innerText)
+//   );
+
+//   fetch("http://localhost:5000/export_excel", {
+//     method: "POST",
+//     headers: {
+//       "Content-Type": "application/json",
+//     },
+//     body: JSON.stringify({ table: rows }),
+//   })
+//     .then((response) => response.blob())
+//     .then((blob) => {
+//       const link = document.createElement("a");
+//       link.href = URL.createObjectURL(blob);
+//       link.download = "Розклад.xlsx";
+//       document.body.appendChild(link);
+//       link.click();
+//       document.body.removeChild(link);
+//     })
+//     .catch((error) => console.error("Помилка експорту в Excel:", error));
+// });
+
+// exel export
 document.getElementById("exportExcelButton").addEventListener("click", () => {
   const table = document.getElementById("scheduleTable");
-
   if (!table || table.style.display === "none") {
     alert("Будь ласка, згенеруйте розклад перед експортом.");
     return;
   }
 
-  const rows = Array.from(table.rows).map((row) =>
-    Array.from(row.cells).map((cell) => cell.innerText)
-  );
+  const html = `
+    <html>
+      <head>
+        <meta charset="UTF-8">
+        <style>
+          table {
+            border-collapse: collapse;
+            font-family: sans-serif;
+            font-size: 14px;
+          }
+          th, td {
+            border: 1px solid #333;
+            padding: 6px 10px;
+            text-align: center;
+            vertical-align: middle;
+          }
+          th {
+            background-color: #4F81BD;
+            color: white;
+          }
+          .day-column {
+            background-color: #D9E1F2;
+            font-weight: bold;
+          }
+        </style>
+      </head>
+      <body>
+        ${table.outerHTML}
+      </body>
+    </html>
+  `;
 
-  fetch("http://localhost:5000/export_excel", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ table: rows }),
-  })
-    .then((response) => response.blob())
-    .then((blob) => {
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = "Розклад.xlsx";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    })
-    .catch((error) => console.error("Помилка експорту в Excel:", error));
-});
-// Excel export via Python server
-document.getElementById("exportExcelButton").addEventListener("click", () => {
-  const table = document.getElementById("scheduleTable");
+  const blob = new Blob([html], {
+    type: "application/vnd.ms-excel;charset=utf-8",
+  });
 
-  if (!table || table.style.display === "none") {
-    alert("Будь ласка, згенеруйте розклад перед експортом.");
-    return;
-  }
-
-  const rows = Array.from(table.rows).map((row) =>
-    Array.from(row.cells).map((cell) => cell.innerText)
-  );
-
-  fetch("http://localhost:5000/export_excel", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ table: rows }),
-  })
-    .then((response) => response.blob())
-    .then((blob) => {
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = "Розклад.xlsx";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    })
-    .catch((error) => console.error("Помилка експорту в Excel:", error));
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "Розклад.xls";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 });
 
 // PDF export using html2pdf.js (Unicode-compatible and full layout)
