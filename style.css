@@ -414,6 +414,24 @@ td a:hover {
   color: #000;
 }
 
+/* Добавить к существующему style.css */
+select.type-select {
+  width: 100%;
+  padding: 4px;
+  margin: 4px 0;
+  border: 1px solid #333;
+  border-radius: 4px;
+  font-family: "Arial", sans-serif;
+  font-size: 12px;
+  background-color: #fff;
+  color: #333;
+}
+select.type-select:focus {
+  border-color: #4f81bd;
+  outline: none;
+  box-shadow: 0 0 3px rgba(79, 129, 189, 0.5);
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;

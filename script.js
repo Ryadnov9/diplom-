@@ -672,11 +672,11 @@ function toggleEditMode() {
   const cells = table.getElementsByTagName("td");
 
   if (!isEditMode) {
+    // Вход в режим редактирования
     for (let i = 2; i < table.rows.length; i++) {
       const row = table.rows[i];
       const dayIndex = Math.floor((i - 2) / 6);
       const pair = ((i - 2) % 6) + 1;
-
       const hasDayCell = pair === 1;
       const shift = hasDayCell ? 0 : 1;
 
@@ -690,48 +690,70 @@ function toggleEditMode() {
           type = "",
           link = "";
 
+        // Извлечение текущих данных из ячейки
         if (cell.querySelector(".schedule-entry")) {
           const spans = cell.getElementsByTagName("span");
           if (spans.length >= 3) {
-            subject = spans[0].textContent || "";
-            teacher = spans[1].textContent || "";
-            type = spans[2].textContent || "";
+            subject = spans[0].textContent.trim() || "";
+            teacher = spans[1].textContent.trim() || "";
+            type = spans[2].textContent.trim() || "";
           }
           const linkElement = cell.querySelector("a");
-          if (linkElement) link = linkElement.href || "";
-          else {
+          if (linkElement) {
+            link = linkElement.href || "";
+          } else {
             for (let span of spans) {
               if (span.textContent.startsWith("Код:"))
                 link += span.textContent.replace("Код: ", "") + " ";
               else if (span.textContent.startsWith("Пароль:"))
                 link += "Пароль: " + span.textContent.replace("Пароль: ", "");
             }
+            link = link.trim();
           }
         }
 
+        // Сохранение атрибутов ячейки
         cell.setAttribute("data-day", dayIndex);
         cell.setAttribute("data-pair", pair);
         cell.setAttribute("data-group", group);
-        cell.innerHTML = `<input type="text" value="${subject}" placeholder="Предмет"><br>
-        <input type="text" value="${teacher}" placeholder="Викладач"><br>
-        <input type="text" value="${type}" placeholder="Тип"><br>
-        <input type="text" value="${link}" placeholder="Посилання/Код"><br>
-        <button class="save-btn" onclick="saveEdit(this)">Зберегти</button>`;
+
+        // Создание HTML для редактирования с выпадающим списком
+        cell.innerHTML = `
+          <div class="schedule-entry">
+            <input type="text" value="${subject}" placeholder="Предмет"><br>
+            <input type="text" value="${teacher}" placeholder="Викладач"><br>
+            <select class="type-select">
+              <option value="" ${type === "" ? "selected" : ""}></option>
+              <option value="лекція" ${
+                type === "лекція" ? "selected" : ""
+              }>Лекція</option>
+              <option value="лабораторна" ${
+                type === "лабораторна" ? "selected" : ""
+              }>Лабораторна</option>
+              <option value="практика" ${
+                type === "практика" ? "selected" : ""
+              }>Практика</option>
+            </select><br>
+            <input type="text" value="${link}" placeholder="Посилання/Код"><br>
+            <button class="save-btn" onclick="saveEdit(this)">Зберегти</button>
+          </div>
+        `;
       }
     }
     document.getElementById("editTableButton").textContent =
       "Завершити редагування";
     isEditMode = true;
   } else {
+    // Выход из режима редактирования
     for (let cell of cells) {
       const inputs = cell.getElementsByTagName("input");
-      if (inputs.length === 4) {
-        const [subject, teacher, type, link] = [
-          inputs[0].value.trim(),
-          inputs[1].value.trim(),
-          inputs[2].value.trim(),
-          inputs[3].value.trim(),
-        ];
+      const select = cell.getElementsByTagName("select")[0];
+      if (inputs.length === 3 && select) {
+        // Получение значений из полей
+        const [subject, teacher, link] = Array.from(inputs).map(
+          (input) => input.value.trim() || ""
+        );
+        const type = select.value || "";
         const [day, pair, group] = [
           parseInt(cell.getAttribute("data-day")),
           parseInt(cell.getAttribute("data-pair")),
@@ -744,11 +766,19 @@ function toggleEditMode() {
         );
 
         if (isEmpty) {
-          if (scheduleIndex !== -1) importedSchedule.splice(scheduleIndex, 1);
-          cell.innerHTML = `<div class="schedule-entry"></div>`;
+          // Удаление записи и очистка ячейки, если все поля пустые
+          if (scheduleIndex !== -1) {
+            importedSchedule.splice(scheduleIndex, 1);
+          }
+          cell.innerHTML = `<div class="schedule-entry">
+            <span class="schedule-item"></span>
+            <span class="schedule-item"></span>
+            <span class="schedule-item"></span>
+          </div>`;
         } else {
+          // Формирование содержимого ссылки
           const linkContent =
-            (link && link.startsWith("http://")) || link.startsWith("https://")
+            link && (link.startsWith("http://") || link.startsWith("https://"))
               ? `<a href="${link}" target="_blank" class="schedule-item">Посилання</a>`
               : link
               ? link.match(/код:\s*(\S+)/i) && link.match(/пароль:\s*(\S+)/i)
@@ -763,33 +793,33 @@ function toggleEditMode() {
                     .trim()}</span>`
                 : `<span class="schedule-item">${link}</span>`
               : "";
-          if (scheduleIndex !== -1)
-            importedSchedule[scheduleIndex] = {
-              ...importedSchedule[scheduleIndex],
-              subject: subject || "Немає предмета",
-              teacher: teacher || "Немає викладача",
-              type: type || "Немає типу",
-              link,
-            };
-          else
-            importedSchedule.push({
-              group,
-              subject: subject || "Немає предмета",
-              teacher: teacher || "Немає викладача",
-              type: type || "Немає типу",
-              link,
-              day,
-              pair,
-              weeklyCount: 1,
-              duration: PAIR_DURATION_MINUTES,
-            });
-          cell.innerHTML = `<div class="schedule-entry"><span class="schedule-item">${
-            subject || "Немає предмета"
-          }</span><span class="schedule-item">${
-            teacher || "Немає викладача"
-          }</span><span class="schedule-item">${
-            type || "Немає типу"
-          }</span>${linkContent}</div>`;
+
+          // Обновление или добавление записи в расписание
+          const entry = {
+            group,
+            subject,
+            teacher,
+            type,
+            link,
+            day,
+            pair,
+            weeklyCount: 1,
+            duration: PAIR_DURATION_MINUTES,
+          };
+
+          if (scheduleIndex !== -1) {
+            importedSchedule[scheduleIndex] = entry;
+          } else {
+            importedSchedule.push(entry);
+          }
+
+          // Обновление содержимого ячейки
+          cell.innerHTML = `<div class="schedule-entry">
+            <span class="schedule-item">${subject}</span>
+            <span class="schedule-item">${teacher}</span>
+            <span class="schedule-item">${type}</span>
+            ${linkContent}
+          </div>`;
         }
       }
     }
@@ -801,16 +831,14 @@ function toggleEditMode() {
 
 function saveEdit(button) {
   const cell = button.parentElement;
-  const [subject, teacher, type, link] = [
-    ...cell.getElementsByTagName("input"),
-  ].map(
-    (input) =>
-      input.value.trim() ||
-      ["Немає предмета", "Немає викладача", "Немає типу"][
-        [...cell.getElementsByTagName("input")].indexOf(input)
-      ] ||
-      ""
+  const inputs = cell.getElementsByTagName("input");
+  const select = cell.getElementsByTagName("select")[0];
+
+  // Получение значений из полей
+  const [subject, teacher, link] = Array.from(inputs).map(
+    (input) => input.value.trim() || ""
   );
+  const type = select.value || "";
   const [day, pair, group] = [
     parseInt(cell.getAttribute("data-day")),
     parseInt(cell.getAttribute("data-pair")),
@@ -819,33 +847,65 @@ function saveEdit(button) {
   const scheduleIndex = importedSchedule.findIndex(
     (entry) => entry.group === group && entry.day === day && entry.pair === pair
   );
-  if (scheduleIndex !== -1)
-    importedSchedule[scheduleIndex] = {
-      ...importedSchedule[scheduleIndex],
+  const isEmpty = !subject && !teacher && !type && !link;
+
+  if (isEmpty) {
+    // Удаление записи и очистка ячейки, если все поля пустые
+    if (scheduleIndex !== -1) {
+      importedSchedule.splice(scheduleIndex, 1);
+    }
+    cell.innerHTML = `<div class="schedule-entry">
+      <span class="schedule-item"></span>
+      <span class="schedule-item"></span>
+      <span class="schedule-item"></span>
+    </div>`;
+  } else {
+    // Формирование содержимого ссылки
+    const linkContent =
+      link && (link.startsWith("http://") || link.startsWith("https://"))
+        ? `<a href="${link}" target="_blank" class="schedule-item">Посилання</a>`
+        : link
+        ? link.match(/код:\s*(\S+)/i) && link.match(/пароль:\s*(\S+)/i)
+          ? `<span class="schedule-item">Код: ${link
+              .match(/код:\s*(\S+)/i)[1]
+              .trim()}</span><br><span class="schedule-item">Пароль: ${link
+              .match(/пароль:\s*(\S+)/i)[1]
+              .trim()}</span>`
+          : link.match(/код:\s*(\S+)/i)
+          ? `<span class="schedule-item">Код: ${link
+              .match(/код:\s*(\S+)/i)[1]
+              .trim()}</span>`
+          : `<span class="schedule-item">${link}</span>`
+        : "";
+
+    // Обновление или добавление записи в расписание
+    const entry = {
+      group,
       subject,
       teacher,
       type,
       link,
+      day,
+      pair,
+      weeklyCount: 1,
+      duration: PAIR_DURATION_MINUTES,
     };
-  const linkContent =
-    link && (link.startsWith("http://") || link.startsWith("https://"))
-      ? `<a href="${link}" target="_blank" class="schedule-item">Посилання</a>`
-      : link
-      ? link.match(/код:\s*(\S+)/i) && link.match(/пароль:\s*(\S+)/i)
-        ? `<span class="schedule-item">Код: ${link
-            .match(/код:\s*(\S+)/i)[1]
-            .trim()}</span><br><span class="schedule-item">Пароль: ${link
-            .match(/пароль:\s*(\S+)/i)[1]
-            .trim()}</span>`
-        : link.match(/код:\s*(\S+)/i)
-        ? `<span class="schedule-item">Код: ${link
-            .match(/код:\s*(\S+)/i)[1]
-            .trim()}</span>`
-        : `<span class="schedule-item">${link}</span>`
-      : "";
-  cell.innerHTML = `<div class="schedule-entry"><span class="schedule-item">${subject}</span><span class="schedule-item">${teacher}</span><span class="schedule-item">${type}</span>${linkContent}</div>`;
-}
 
+    if (scheduleIndex !== -1) {
+      importedSchedule[scheduleIndex] = entry;
+    } else {
+      importedSchedule.push(entry);
+    }
+
+    // Обновление содержимого ячейки
+    cell.innerHTML = `<div class="schedule-entry">
+      <span class="schedule-item">${subject}</span>
+      <span class="schedule-item">${teacher}</span>
+      <span class="schedule-item">${type}</span>
+      ${linkContent}
+    </div>`;
+  }
+}
 function renderTable(generatedSchedule) {
   console.log("Groups:", groups);
   console.log("Imported schedule:", generatedSchedule);
