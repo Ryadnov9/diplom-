@@ -228,7 +228,7 @@ function exportToExcel(scheduleTitle, approvalName) {
           <tr><td colspan="${groups.length + 2}"></td></tr>
           <tr>
             <td colspan="${groups.length + 2}" class="approval">
-              Підтверджено: ${approvalName}, Підпис: ________
+              Підтверджено: ${approvalName}
             </td>
           </tr>`;
   }
