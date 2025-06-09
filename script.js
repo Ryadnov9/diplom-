@@ -6,24 +6,36 @@ let groups = [];
 let importedSchedule = [];
 let teacherRestrictions = [];
 let isEditMode = false;
+let exportType = "excel";
 
+// Обработчик для кнопки генерации расписания
 document
   .getElementById("generateButton")
   .addEventListener("click", generateSchedule);
+
+// Обработчик для кнопки возврата к форме генерации
 document.getElementById("backButton").addEventListener("click", backToGenerate);
+
+// Обработчик для кнопки открытия опций импорта
 document.getElementById("importButton").addEventListener("click", () => {
   document.getElementById("importOptions").style.display = "block";
 });
+
+// Обработчик для кнопки закрытия опций импорта
 document
   .getElementById("closeImportOptionsButton")
   .addEventListener("click", () => {
     document.getElementById("importOptions").style.display = "none";
   });
+
+// Обработчик для кнопки импорта CSV файла
 document.getElementById("importCSVButton").addEventListener("click", () => {
   document.getElementById("importOptions").style.display = "none";
   document.getElementById("fileInput").accept = ".csv";
   document.getElementById("fileInput").click();
 });
+
+// Обработчик для кнопки импорта сохраненного файла (JSON/TXT)
 document
   .getElementById("importSavedFileButton")
   .addEventListener("click", () => {
@@ -31,107 +43,200 @@ document
     document.getElementById("fileInput").accept = ".json,.txt";
     document.getElementById("fileInput").click();
   });
+
+// Обработчик для изменения выбранного файла (импорт)
 document
   .getElementById("fileInput")
   .addEventListener("change", handleFileImport);
+
+// Обработчик для кнопки редактирования таблицы
 document
   .getElementById("editTableButton")
   .addEventListener("click", toggleEditMode);
+
+// Обработчик для кнопки проверки конфликтов
 document
   .getElementById("checkConflictsButton")
   .addEventListener("click", checkConflicts);
+
+// Обработчик для кнопки закрытия результатов конфликтов
 document
   .getElementById("closeConflictResultsButton")
   .addEventListener(
     "click",
     () => (document.getElementById("conflictResults").style.display = "none")
   );
+
+// Обработчик для кнопки закрытия результатов поиска
 document.getElementById("closeResultsButton").addEventListener("click", () => {
   document.getElementById("searchResults").style.display = "none";
   document.getElementById("searchInput").value = "";
 });
+
+// Обработчик для ввода в поле поиска
 document.getElementById("searchInput").addEventListener("input", searchTable);
+
+// Обработчик для кнопки открытия опций экспорта
 document
   .getElementById("exportButton")
   .addEventListener("click", showExportOptions);
+
+// Обработчик для кнопки закрытия опций экспорта
 document
   .getElementById("closeExportOptionsButton")
   .addEventListener(
     "click",
     () => (document.getElementById("exportOptions").style.display = "none")
   );
+// Добавьте новые обработчики событий перед существующим обработчиком exportExcelButton
+document.getElementById("exportExcelButton").addEventListener("click", () => {
+  exportType = "excel";
+  document.getElementById("excelOptions").style.display = "block";
+  document.getElementById("exportOptions").style.display = "none";
+  document.getElementById("scheduleTitle").value = ""; // Очищаем поля
+  document.getElementById("approvalName").value = "";
+});
 
-//   // Excel export via Python server
-// document.getElementById("exportExcelButton").addEventListener("click", () => {
-//   const table = document.getElementById("scheduleTable");
+document.getElementById("exportPDFButton").addEventListener("click", () => {
+  exportType = "pdf";
+  document.getElementById("excelOptions").style.display = "block";
+  document.getElementById("exportOptions").style.display = "none";
+  document.getElementById("scheduleTitle").value = ""; // Очищаем поля
+  document.getElementById("approvalName").value = "";
+});
+document
+  .getElementById("closeExcelOptionsButton")
+  .addEventListener("click", () => {
+    document.getElementById("excelOptions").style.display = "none";
+    document.getElementById("exportOptions").style.display = "block";
+  });
 
-//   if (!table || table.style.display === "none") {
-//     alert("Будь ласка, згенеруйте розклад перед експортом.");
-//     return;
-//   }
+document
+  .getElementById("confirmExcelExportButton")
+  .addEventListener("click", () => {
+    const scheduleTitle =
+      document.getElementById("scheduleTitle").value || "Розклад занять";
+    const approvalName = document.getElementById("approvalName").value || "";
+    document.getElementById("excelOptions").style.display = "none";
 
-//   const rows = Array.from(table.rows).map((row) =>
-//     Array.from(row.cells).map((cell) => cell.innerText)
-//   );
+    console.log("Export type:", exportType); // Отладка
+    if (exportType === "excel") {
+      exportToExcel(scheduleTitle, approvalName);
+    } else if (exportType === "pdf") {
+      exportToPDF(scheduleTitle, approvalName);
+    }
 
-//   fetch("http://localhost:5000/export_excel", {
-//     method: "POST",
-//     headers: {
-//       "Content-Type": "application/json",
-//     },
-//     body: JSON.stringify({ table: rows }),
-//   })
-//     .then((response) => response.blob())
-//     .then((blob) => {
-//       const link = document.createElement("a");
-//       link.href = URL.createObjectURL(blob);
-//       link.download = "Розклад.xlsx";
-//       document.body.appendChild(link);
-//       link.click();
-//       document.body.removeChild(link);
-//     })
-//     .catch((error) => console.error("Помилка експорту в Excel:", error));
-// });
-
-// exel export
+    document.getElementById("exportOptions").style.display = "block";
+  });
+// Exel export
 document.getElementById("exportExcelButton").addEventListener("click", () => {
   const table = document.getElementById("scheduleTable");
   if (!table || table.style.display === "none") {
     alert("Будь ласка, згенеруйте розклад перед експортом.");
     return;
   }
+  document.getElementById("excelOptions").style.display = "block";
+});
 
-  const html = `
+// Функция экспорта в Excel с разрывом строки через \n
+function exportToExcel(scheduleTitle, approvalName) {
+  const table = document.getElementById("scheduleTable");
+  if (!table || table.style.display === "none") {
+    alert("Будь ласка, згенеруйте розклад перед експортом.");
+    return;
+  }
+
+  // Копируем таблицу
+  const clonedTable = table.cloneNode(true);
+
+  // Обработка ссылок и добавление отступа перед "посилання"
+  const cells = clonedTable.getElementsByTagName("th");
+  for (let cell of cells) {
+    if (!cell.classList.contains("day-column")) {
+      const links = cell.getElementsByTagName("a");
+      for (let link of links) {
+        const text = link.textContent || link.innerText;
+        // Пробуем разделить по "посилання" с учётом возможного отсутствия пробела
+        let parts = text.split(/(посилання)/i); // Разделяем с учётом регистра
+        if (parts.length > 1) {
+          let subjectPart = parts[0].trim();
+          let linkPart = parts[1] + (parts[2] ? parts[2].trim() : "");
+          const linkElement = document.createElement("a");
+          linkElement.href = link.href; // Сохраняем оригинальный href
+          linkElement.textContent = linkPart;
+          linkElement.style.color = "#0000FF"; // Синий цвет для ссылки
+          linkElement.style.textDecoration = "none"; // Без подчёркивания
+          const span = document.createElement("span");
+          span.innerHTML = subjectPart + "     "; // Отступ перед ссылкой
+          span.appendChild(linkElement);
+          link.parentNode.replaceChild(span, link);
+        }
+      }
+    }
+  }
+  const tds = clonedTable.getElementsByTagName("td");
+  for (let cell of tds) {
+    const links = cell.getElementsByTagName("a");
+    for (let link of links) {
+      const text = link.textContent || link.innerText;
+      // Пробуем разделить по "посилання" с учётом возможного отсутствия пробела
+      let parts = text.split(/(посилання)/i); // Разделяем с учётом регистра
+      if (parts.length > 1) {
+        let subjectPart = parts[0].trim();
+        let linkPart = parts[1] + (parts[2] ? parts[2].trim() : "");
+        const linkElement = document.createElement("a");
+        linkElement.href = link.href; // Сохраняем оригинальный href
+        linkElement.textContent = linkPart;
+        linkElement.style.color = "#0000FF"; // Синий цвет для ссылки
+        linkElement.style.textDecoration = "none"; // Без подчёркивания
+        const span = document.createElement("span");
+        span.innerHTML = subjectPart + "     "; // Отступ перед ссылкой
+        span.appendChild(linkElement);
+        link.parentNode.replaceChild(span, link);
+      }
+    }
+  }
+
+  const style = document.createElement("style");
+  style.textContent = `
+    table { border-collapse: collapse; font-family: Arial, sans-serif; }
+    th, td { border: 1px solid #000; padding: 8px; text-align: center; vertical-align: middle; }
+    .title { font-size: 16pt; font-weight: bold; text-align: center; }
+    .approval { font-size: 10pt; text-align: left; }
+    .day-column { writing-mode: vertical-rl; text-orientation: upright; }
+    a { color: #0000FF; text-decoration: none; } /* Синий цвет для всех ссылок */
+    span { color: #000000; } /* Чёрный цвет для остального текста */
+  `;
+
+  let html = `
     <html>
       <head>
         <meta charset="UTF-8">
-        <style>
-          table {
-            border-collapse: collapse;
-            font-family: sans-serif;
-            font-size: 14px;
-          }
-          th, td {
-            border: 1px solid #333;
-            padding: 6px 10px;
-            text-align: center;
-            vertical-align: middle;
-          }
-          th {
-            background-color: #4F81BD;
-            color: white;
-          }
-          .day-column {
-            background-color: #D9E1F2;
-            font-weight: bold;
-          }
-        </style>
+        ${style.outerHTML}
       </head>
       <body>
-        ${table.outerHTML}
-      </body>
-    </html>
+        <table>
+          <tr><th colspan="${
+            groups.length + 2
+          }" class="title">${scheduleTitle}</th></tr>
+          ${clonedTable.outerHTML}
   `;
+
+  // Добавляем строку утверждения
+  if (approvalName) {
+    html += `
+          <tr><td colspan="${groups.length + 2}"></td></tr>
+          <tr>
+            <td colspan="${groups.length + 2}" class="approval">
+              Підтверджено: ${approvalName}, Підпис: ________
+            </td>
+          </tr>`;
+  }
+
+  html += `
+        </table>
+      </body>
+    </html>`;
 
   const blob = new Blob([html], {
     type: "application/vnd.ms-excel;charset=utf-8",
@@ -143,10 +248,10 @@ document.getElementById("exportExcelButton").addEventListener("click", () => {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-});
+}
 
-// PDF export using html2pdf.js (Unicode-compatible and full layout)
-document.getElementById("exportPDFButton").addEventListener("click", () => {
+// Функция для экспорта в PDF с заголовком и подтверждением
+function exportToPDF(scheduleTitle, approvalName) {
   const element = document.getElementById("scheduleTable");
 
   if (!element || element.style.display === "none") {
@@ -154,11 +259,24 @@ document.getElementById("exportPDFButton").addEventListener("click", () => {
     return;
   }
 
+  // Сохраняем текущие стили вертикального текста
   const dayHeaders = element.querySelectorAll(".day-column");
   dayHeaders.forEach((el) => {
     el.style.writingMode = "horizontal-tb";
     el.style.textOrientation = "initial";
   });
+
+  // Создаём контейнер для экспорта с заголовком и утверждением
+  const exportContainer = document.createElement("div");
+  exportContainer.innerHTML = `
+    <h2 style="text-align: center; margin-bottom: 20px;">${scheduleTitle}</h2>
+    ${element.outerHTML}
+    ${
+      approvalName
+        ? `<p style="text-align: left; margin-top: 20px;">Утверждено: ${approvalName}, Подпись: ________</p>`
+        : ""
+    }
+  `;
 
   const opt = {
     margin: 10,
@@ -170,18 +288,18 @@ document.getElementById("exportPDFButton").addEventListener("click", () => {
       scrollX: 0,
       scrollY: 0,
       windowWidth: element.scrollWidth,
-      windowHeight: element.scrollHeight,
+      windowHeight: element.scrollHeight + 100, // Добавляем место для заголовка и утверждения
     },
     jsPDF: {
       unit: "px",
-      format: [element.scrollWidth + 20, element.scrollHeight + 20],
+      format: [element.scrollWidth + 20, element.scrollHeight + 120], // Увеличиваем высоту для заголовка и утверждения
       orientation: "landscape",
     },
   };
 
   html2pdf()
     .set(opt)
-    .from(element)
+    .from(exportContainer)
     .save()
     .then(() => {
       dayHeaders.forEach((el) => {
@@ -189,7 +307,7 @@ document.getElementById("exportPDFButton").addEventListener("click", () => {
         el.style.textOrientation = "upright";
       });
     });
-});
+}
 
 function showExportOptions() {
   const exportOptions = document.getElementById("exportOptions");
@@ -968,31 +1086,6 @@ function renderTable(generatedSchedule) {
       table.appendChild(row);
     }
   });
-}
-
-function exportToExcelViaPython() {
-  const table = document.getElementById("scheduleTable");
-  const rows = Array.from(table.rows).map((row) =>
-    Array.from(row.cells).map((cell) => cell.innerText)
-  );
-
-  fetch("http://localhost:5000/export_excel", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ table: rows }),
-  })
-    .then((response) => response.blob())
-    .then((blob) => {
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = "Розклад.xlsx";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    })
-    .catch((error) => console.error("Error exporting Excel:", error));
 }
 
 function searchTable() {

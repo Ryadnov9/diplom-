@@ -6,9 +6,7 @@
     <title>Розклад занять</title>
     <link rel="stylesheet" href="style.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script> -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
     <link
       href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap"
       rel="stylesheet"
@@ -19,45 +17,55 @@
       <header>
         <h1>Розклад занять</h1>
       </header>
-      <main class="main-section">
+
+      <section class="main-section">
         <div class="button-group">
-          <button id="generateButton" class="btn btn-generate">
+          <button class="btn btn-generate" id="generateButton">
             Згенерувати розклад
           </button>
-          <button id="importButton" class="btn btn-import">
+          <button class="btn btn-import" id="importButton">
             Імпортувати файл
           </button>
-          <input
-            type="file"
-            id="fileInput"
-            accept=".csv"
-            style="display: none"
-          />
+          <input type="file" id="fileInput" style="display: none" />
           <button
-            id="exportButton"
             class="btn btn-export"
+            id="exportButton"
             style="display: none"
           >
             Експортувати
           </button>
-          <button id="backButton" class="btn btn-back" style="display: none">
+          <button class="btn btn-back" id="backButton" style="display: none">
             Назад
           </button>
           <button
-            id="editTableButton"
             class="btn btn-edit"
+            id="editTableButton"
             style="display: none"
           >
             Редагувати таблицю
           </button>
           <button
-            id="checkConflictsButton"
             class="btn btn-check-conflicts"
+            id="checkConflictsButton"
             style="display: none"
           >
             Перевірити накладки
           </button>
         </div>
+
+        <div class="export-options" id="exportOptions" style="display: none">
+          <div class="export-options-header">
+            <h3>Опції експорту</h3>
+            <button id="closeExportOptionsButton">×</button>
+          </div>
+          <button class="btn btn-export" id="exportExcelButton">
+            Експортувати в Excel
+          </button>
+          <button class="btn btn-export" id="exportPDFButton">
+            Експортувати в PDF
+          </button>
+        </div>
+
         <div class="search-bar" style="display: none">
           <input
             type="text"
@@ -65,36 +73,48 @@
             placeholder="Пошук за групою, предметом або викладачем"
           />
         </div>
+
         <div class="table-wrapper">
           <table id="scheduleTable" style="display: none"></table>
         </div>
-        <div id="searchResults" class="search-results">
+
+        <div class="search-results" id="searchResults">
           <div class="search-results-header">
             <h3>Результати пошуку</h3>
             <button id="closeResultsButton">×</button>
           </div>
           <div id="searchResultsContent"></div>
         </div>
-        <div id="conflictResults" class="conflict-results">
+
+        <div class="conflict-results" id="conflictResults">
           <div class="conflict-results-header">
             <h3>Результати перевірки накладок</h3>
             <button id="closeConflictResultsButton">×</button>
           </div>
           <div id="conflictResultsContent"></div>
         </div>
-        <div id="exportOptions" class="export-options">
+
+        <div class="export-options" id="excelOptions" style="display: none">
           <div class="export-options-header">
-            <h3>Опції експорту</h3>
-            <button id="closeExportOptionsButton">×</button>
+            <h3>Налаштування експорту в Excel</h3>
+            <button id="closeExcelOptionsButton">×</button>
           </div>
-          <button id="exportExcelButton" class="btn btn-export">
-            Експортувати в Excel
-          </button>
-          <button id="exportPDFButton" class="btn btn-export">
-            Експортувати в PDF
+          <input
+            type="text"
+            id="scheduleTitle"
+            placeholder="Введіть заголовок розкладу"
+          /><br />
+          <input
+            type="text"
+            id="approvalName"
+            placeholder="Введіть ім'я затверджуючого"
+          /><br />
+          <button class="btn btn-export" id="confirmExcelExportButton">
+            Підтвердити експорт
           </button>
         </div>
-        <div id="importOptions" class="export-options">
+
+        <div class="export-options" id="importOptions" style="display: none">
           <div class="export-options-header">
             <h3>Оберіть тип імпорту</h3>
             <button id="closeImportOptionsButton">×</button>
@@ -106,23 +126,7 @@
             Імпорт збереженого файлу
           </button>
         </div>
-        <div class="approval-section" style="margin-top: 10px; display: none">
-          <label for="approvalName">Утверждено:</label>
-          <input
-            type="text"
-            id="approvalName"
-            placeholder="ФИО утверждающего"
-            style="margin-right: 10px"
-          />
-          <label for="signature">Подпись:</label>
-          <input
-            type="text"
-            id="signature"
-            placeholder="Подпись (например, ________)"
-            value="________"
-          />
-        </div>
-      </main>
+      </section>
     </div>
     <script src="script.js"></script>
   </body>

@@ -377,18 +377,15 @@ td a:hover {
 }
 
 .export-options {
-  display: none;
-  position: fixed;
-  top: 150px;
+  position: absolute;
+  top: 250px; /* Устанавливаем позицию ниже строки поиска (учитывая margin-top: 150px + высота строки ~100px) */
   left: 50%;
   transform: translateX(-50%);
-  background-color: white;
-  border: 2px solid #ccc;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-  z-index: 1000;
+  background: white;
   padding: 20px;
   border-radius: 8px;
-  text-align: center;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  z-index: 1001; /* Высокий z-index для окна экспорта */
 }
 
 .export-options .btn {
@@ -414,7 +411,6 @@ td a:hover {
   color: #000;
 }
 
-/* Добавить к существующему style.css */
 select.type-select {
   width: 100%;
   padding: 4px;
@@ -432,6 +428,19 @@ select.type-select:focus {
   box-shadow: 0 0 3px rgba(79, 129, 189, 0.5);
 }
 
+#excelOptions input {
+  width: 100%;
+  padding: 10px;
+  margin: 10px 0;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 1em;
+}
+
+#excelOptions input:focus {
+  border-color: #0277bd;
+  box-shadow: 0 0 5px rgba(2, 119, 189, 0.3);
+}
 @keyframes fadeIn {
   from {
     opacity: 0;
