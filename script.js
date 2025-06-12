@@ -266,7 +266,7 @@ function exportToPDF(scheduleTitle, approvalName) {
     ${element.outerHTML}
     ${
       approvalName
-        ? `<p style="text-align: left; margin-top: 20px;">Утверждено: ${approvalName}, Подпись: ________</p>`
+        ? `<p style="text-align: left; margin-top: 20px;">Підтверджено: ${approvalName}</p>`
         : ""
     }
   `;
@@ -441,6 +441,7 @@ function findFreeSlot(
   return slots;
 }
 // Обробка імпорту файлу
+// Функція обробки імпорту файлу
 function handleFileImport(event) {
   const file = event.target.files[0];
   if (!file) {
@@ -549,28 +550,38 @@ function handleFileImport(event) {
           ) {
             const fields = rows[i].split(",").map((item) => item.trim());
             if (fields.length === 6) {
-              const [group, subject, teacher, type, link, totalHours] = fields;
-              if (group && subject && teacher && type && totalHours) {
+              const [groupField, subject, teacher, type, link, totalHours] =
+                fields;
+              if (groupField && subject && teacher && type && totalHours) {
                 const totalHoursNum = parseInt(totalHours);
                 const weeklyCountNum = Math.floor(
                   totalHoursNum / semesterWeeks
                 );
+                // Розділяємо групу на масив груп, якщо є символ "_"
+                const groupList = groupField.split("_").map((g) => g.trim());
+                // Перевіряємо, чи всі групи є в group_info
+                const invalidGroups = groupList.filter(
+                  (g) => !groups.some((group) => group.name === g)
+                );
                 if (
-                  groups.some((g) => g.name === group) &&
+                  invalidGroups.length === 0 &&
                   ["лекція", "лабораторна", "практика"].includes(type) &&
                   !isNaN(totalHoursNum) &&
                   totalHoursNum > 0 &&
                   weeklyCountNum <= MAX_PAIRS_PER_DAY
                 ) {
-                  pendingLessons.push({
-                    group,
-                    subject,
-                    teacher,
-                    type,
-                    link,
-                    totalHours: totalHoursNum,
-                    weeklyCount: weeklyCountNum,
-                    duration: PAIR_DURATION_MINUTES,
+                  // Додаємо заняття для кожної групи
+                  groupList.forEach((group) => {
+                    pendingLessons.push({
+                      group,
+                      subject,
+                      teacher,
+                      type,
+                      link,
+                      totalHours: totalHoursNum,
+                      weeklyCount: weeklyCountNum,
+                      duration: PAIR_DURATION_MINUTES,
+                    });
                   });
                 } else {
                   console.warn(
@@ -606,47 +617,26 @@ function handleFileImport(event) {
         const allDays = [0, 1, 2, 3, 4];
         const groupsForLesson = lessons.map((lesson) => lesson.group);
 
-        if (lessons.length > 1) {
-          const slots = findFreeSlot(
-            firstLesson.teacher,
-            groupsForLesson,
-            allowedPairs,
-            preferredDays,
-            allDays,
-            weeklyCountNum,
-            importedSchedule,
-            lessons.every((lesson) => lesson.type === "лекція")
-          );
-          if (slots)
-            slots.forEach((slot, index) =>
-              lessons.forEach((lesson) =>
-                importedSchedule.push({
-                  ...lesson,
-                  day: slot.day,
-                  pair: slot.pair,
-                })
-              )
-            );
-        } else {
-          const slots = findFreeSlot(
-            firstLesson.teacher,
-            groupsForLesson,
-            allowedPairs,
-            preferredDays,
-            allDays,
-            weeklyCountNum,
-            importedSchedule,
-            firstLesson.type === "лекція"
-          );
-          if (slots)
-            slots.forEach((slot) =>
+        const slots = findFreeSlot(
+          firstLesson.teacher,
+          groupsForLesson,
+          allowedPairs,
+          preferredDays,
+          allDays,
+          weeklyCountNum,
+          importedSchedule,
+          lessons.every((lesson) => lesson.type === "лекція")
+        );
+        if (slots)
+          slots.forEach((slot) =>
+            lessons.forEach((lesson) =>
               importedSchedule.push({
-                ...firstLesson,
+                ...lesson,
                 day: slot.day,
                 pair: slot.pair,
               })
-            );
-        }
+            )
+          );
       }
 
       if (importedSchedule.length === 0)
