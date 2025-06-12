@@ -1,65 +1,59 @@
+// Масив назв днів тижня
 const daysOfWeek = ["Понеділок", "Вівторок", "Середа", "Четвер", "П’ятниця"];
+// Тривалість однієї пари в хвилинах
 const PAIR_DURATION_MINUTES = 80;
+// Максимальна кількість пар на день
 const MAX_PAIRS_PER_DAY = 6;
-
+// Основні масиви
 let groups = [];
 let importedSchedule = [];
 let teacherRestrictions = [];
 let isEditMode = false;
 let exportType = "excel";
 
-// Обработчик для кнопки генерации расписания
+// Обробник для кнопки генерації розкладу
 document
   .getElementById("generateButton")
   .addEventListener("click", generateSchedule);
 
-// Обработчик для кнопки возврата к форме генерации
+// Обробник для кнопки повернення до форми генерації
 document.getElementById("backButton").addEventListener("click", backToGenerate);
 
-// Обработчик для кнопки открытия опций импорта
+// Обробник для кнопки відкриття опцій імпорту
 document.getElementById("importButton").addEventListener("click", () => {
   document.getElementById("importOptions").style.display = "block";
 });
 
-// Обработчик для кнопки закрытия опций импорта
+// Обробник для кнопки закриття опцій імпорту
 document
   .getElementById("closeImportOptionsButton")
   .addEventListener("click", () => {
     document.getElementById("importOptions").style.display = "none";
   });
 
-// Обработчик для кнопки импорта CSV файла
+// Обробник для кнопки імпорту CSV файлу
 document.getElementById("importCSVButton").addEventListener("click", () => {
   document.getElementById("importOptions").style.display = "none";
   document.getElementById("fileInput").accept = ".csv";
   document.getElementById("fileInput").click();
 });
 
-// Обработчик для кнопки импорта сохраненного файла (JSON/TXT)
-document
-  .getElementById("importSavedFileButton")
-  .addEventListener("click", () => {
-    document.getElementById("importOptions").style.display = "none";
-    document.getElementById("fileInput").accept = ".json,.txt";
-    document.getElementById("fileInput").click();
-  });
-
-// Обработчик для изменения выбранного файла (импорт)
+// Обробник для зміни вибраного файлу (імпорт)
 document
   .getElementById("fileInput")
   .addEventListener("change", handleFileImport);
 
-// Обработчик для кнопки редактирования таблицы
+// Обробник для кнопки редагування таблиці
 document
   .getElementById("editTableButton")
   .addEventListener("click", toggleEditMode);
 
-// Обработчик для кнопки проверки конфликтов
+// Обробник для кнопки перевірки конфліктів
 document
   .getElementById("checkConflictsButton")
   .addEventListener("click", checkConflicts);
 
-// Обработчик для кнопки закрытия результатов конфликтов
+// Обробник для кнопки закриття результатів конфліктів
 document
   .getElementById("closeConflictResultsButton")
   .addEventListener(
@@ -67,43 +61,47 @@ document
     () => (document.getElementById("conflictResults").style.display = "none")
   );
 
-// Обработчик для кнопки закрытия результатов поиска
+// Обробник для кнопки закриття результатів пошуку
 document.getElementById("closeResultsButton").addEventListener("click", () => {
   document.getElementById("searchResults").style.display = "none";
   document.getElementById("searchInput").value = "";
 });
 
-// Обработчик для ввода в поле поиска
+// Обробник для введення в поле пошуку
 document.getElementById("searchInput").addEventListener("input", searchTable);
 
-// Обработчик для кнопки открытия опций экспорта
+// Обробник для кнопки відкриття опцій експорту
 document
   .getElementById("exportButton")
   .addEventListener("click", showExportOptions);
 
-// Обработчик для кнопки закрытия опций экспорта
+// Обробник для кнопки закриття опцій експорту
 document
   .getElementById("closeExportOptionsButton")
   .addEventListener(
     "click",
     () => (document.getElementById("exportOptions").style.display = "none")
   );
-// Добавьте новые обработчики событий перед существующим обработчиком exportExcelButton
+
+// Обробник для кнопки експорту в Excel
 document.getElementById("exportExcelButton").addEventListener("click", () => {
   exportType = "excel";
   document.getElementById("excelOptions").style.display = "block";
   document.getElementById("exportOptions").style.display = "none";
-  document.getElementById("scheduleTitle").value = ""; // Очищаем поля
+  document.getElementById("scheduleTitle").value = "";
   document.getElementById("approvalName").value = "";
 });
 
+// Обробник для кнопки експорту в PDF
 document.getElementById("exportPDFButton").addEventListener("click", () => {
   exportType = "pdf";
   document.getElementById("excelOptions").style.display = "block";
   document.getElementById("exportOptions").style.display = "none";
-  document.getElementById("scheduleTitle").value = ""; // Очищаем поля
+  document.getElementById("scheduleTitle").value = "";
   document.getElementById("approvalName").value = "";
 });
+
+// Обробник для кнопки закриття опцій експорту Excel/PDF
 document
   .getElementById("closeExcelOptionsButton")
   .addEventListener("click", () => {
@@ -111,6 +109,7 @@ document
     document.getElementById("exportOptions").style.display = "block";
   });
 
+// Обробник для кнопки підтвердження експорту
 document
   .getElementById("confirmExcelExportButton")
   .addEventListener("click", () => {
@@ -119,7 +118,7 @@ document
     const approvalName = document.getElementById("approvalName").value || "";
     document.getElementById("excelOptions").style.display = "none";
 
-    console.log("Export type:", exportType); // Отладка
+    console.log("Тип експорту:", exportType);
     if (exportType === "excel") {
       exportToExcel(scheduleTitle, approvalName);
     } else if (exportType === "pdf") {
@@ -128,7 +127,8 @@ document
 
     document.getElementById("exportOptions").style.display = "block";
   });
-// Exel export
+
+// Функція експорту до Excel
 document.getElementById("exportExcelButton").addEventListener("click", () => {
   const table = document.getElementById("scheduleTable");
   if (!table || table.style.display === "none") {
@@ -138,7 +138,6 @@ document.getElementById("exportExcelButton").addEventListener("click", () => {
   document.getElementById("excelOptions").style.display = "block";
 });
 
-// Функция экспорта в Excel с разрывом строки через \n
 function exportToExcel(scheduleTitle, approvalName) {
   const table = document.getElementById("scheduleTable");
   if (!table || table.style.display === "none") {
@@ -146,28 +145,26 @@ function exportToExcel(scheduleTitle, approvalName) {
     return;
   }
 
-  // Копируем таблицу
   const clonedTable = table.cloneNode(true);
 
-  // Обработка ссылок и добавление отступа перед "посилання"
+  // Обробка посилань та додавання відступу перед "посилання"
   const cells = clonedTable.getElementsByTagName("th");
   for (let cell of cells) {
     if (!cell.classList.contains("day-column")) {
       const links = cell.getElementsByTagName("a");
       for (let link of links) {
         const text = link.textContent || link.innerText;
-        // Пробуем разделить по "посилання" с учётом возможного отсутствия пробела
-        let parts = text.split(/(посилання)/i); // Разделяем с учётом регистра
+        let parts = text.split(/(посилання)/i);
         if (parts.length > 1) {
           let subjectPart = parts[0].trim();
           let linkPart = parts[1] + (parts[2] ? parts[2].trim() : "");
           const linkElement = document.createElement("a");
-          linkElement.href = link.href; // Сохраняем оригинальный href
+          linkElement.href = link.href;
           linkElement.textContent = linkPart;
-          linkElement.style.color = "#0000FF"; // Синий цвет для ссылки
-          linkElement.style.textDecoration = "none"; // Без подчёркивания
+          linkElement.style.color = "#0000FF";
+          linkElement.style.textDecoration = "none";
           const span = document.createElement("span");
-          span.innerHTML = subjectPart + "     "; // Отступ перед ссылкой
+          span.innerHTML = subjectPart + "     ";
           span.appendChild(linkElement);
           link.parentNode.replaceChild(span, link);
         }
@@ -179,18 +176,17 @@ function exportToExcel(scheduleTitle, approvalName) {
     const links = cell.getElementsByTagName("a");
     for (let link of links) {
       const text = link.textContent || link.innerText;
-      // Пробуем разделить по "посилання" с учётом возможного отсутствия пробела
-      let parts = text.split(/(посилання)/i); // Разделяем с учётом регистра
+      let parts = text.split(/(посилання)/i);
       if (parts.length > 1) {
         let subjectPart = parts[0].trim();
         let linkPart = parts[1] + (parts[2] ? parts[2].trim() : "");
         const linkElement = document.createElement("a");
-        linkElement.href = link.href; // Сохраняем оригинальный href
+        linkElement.href = link.href;
         linkElement.textContent = linkPart;
-        linkElement.style.color = "#0000FF"; // Синий цвет для ссылки
-        linkElement.style.textDecoration = "none"; // Без подчёркивания
+        linkElement.style.color = "#0000FF";
+        linkElement.style.textDecoration = "none";
         const span = document.createElement("span");
-        span.innerHTML = subjectPart + "     "; // Отступ перед ссылкой
+        span.innerHTML = subjectPart + "     ";
         span.appendChild(linkElement);
         link.parentNode.replaceChild(span, link);
       }
@@ -222,7 +218,6 @@ function exportToExcel(scheduleTitle, approvalName) {
           ${clonedTable.outerHTML}
   `;
 
-  // Добавляем строку утверждения
   if (approvalName) {
     html += `
           <tr><td colspan="${groups.length + 2}"></td></tr>
@@ -250,7 +245,7 @@ function exportToExcel(scheduleTitle, approvalName) {
   document.body.removeChild(link);
 }
 
-// Функция для экспорта в PDF с заголовком и подтверждением
+// Функція для експорту в PDF
 function exportToPDF(scheduleTitle, approvalName) {
   const element = document.getElementById("scheduleTable");
 
@@ -259,14 +254,12 @@ function exportToPDF(scheduleTitle, approvalName) {
     return;
   }
 
-  // Сохраняем текущие стили вертикального текста
   const dayHeaders = element.querySelectorAll(".day-column");
   dayHeaders.forEach((el) => {
     el.style.writingMode = "horizontal-tb";
     el.style.textOrientation = "initial";
   });
 
-  // Создаём контейнер для экспорта с заголовком и утверждением
   const exportContainer = document.createElement("div");
   exportContainer.innerHTML = `
     <h2 style="text-align: center; margin-bottom: 20px;">${scheduleTitle}</h2>
@@ -288,11 +281,11 @@ function exportToPDF(scheduleTitle, approvalName) {
       scrollX: 0,
       scrollY: 0,
       windowWidth: element.scrollWidth,
-      windowHeight: element.scrollHeight + 100, // Добавляем место для заголовка и утверждения
+      windowHeight: element.scrollHeight + 100,
     },
     jsPDF: {
       unit: "px",
-      format: [element.scrollWidth + 20, element.scrollHeight + 120], // Увеличиваем высоту для заголовка и утверждения
+      format: [element.scrollWidth + 20, element.scrollHeight + 120],
       orientation: "landscape",
     },
   };
@@ -309,6 +302,7 @@ function exportToPDF(scheduleTitle, approvalName) {
     });
 }
 
+// Відображення опцій експорту
 function showExportOptions() {
   const exportOptions = document.getElementById("exportOptions");
   const searchBarRect = document
@@ -318,6 +312,7 @@ function showExportOptions() {
   exportOptions.style.display = "block";
 }
 
+// Перевірка вільності слота для викладача
 function isTeacherSlotFree(teacher, day, pair, schedule) {
   return !schedule.some(
     (entry) =>
@@ -325,12 +320,14 @@ function isTeacherSlotFree(teacher, day, pair, schedule) {
   );
 }
 
+// Перевірка вільності слота для групи
 function isGroupSlotFree(group, day, pair, schedule) {
   return !schedule.some(
     (entry) => entry.group === group && entry.day === day && entry.pair === pair
   );
 }
 
+// Перевірка наявності достатньої кількості вільних слотів для викладача
 function hasEnoughFreeSlotsForTeacher(teacher, day, weeklyCount, schedule) {
   let occupiedSlots = 0;
   for (let pair = 1; pair <= MAX_PAIRS_PER_DAY; pair++) {
@@ -339,6 +336,7 @@ function hasEnoughFreeSlotsForTeacher(teacher, day, weeklyCount, schedule) {
   return occupiedSlots + weeklyCount <= MAX_PAIRS_PER_DAY;
 }
 
+// Перевірка наявності достатньої кількості вільних слотів для групи
 function hasEnoughFreeSlotsForGroup(group, day, weeklyCount, schedule) {
   let occupiedSlots = 0;
   for (let pair = 1; pair <= MAX_PAIRS_PER_DAY; pair++) {
@@ -346,7 +344,7 @@ function hasEnoughFreeSlotsForGroup(group, day, weeklyCount, schedule) {
   }
   return occupiedSlots + weeklyCount <= MAX_PAIRS_PER_DAY;
 }
-
+// Генерація розкладу
 function findFreeSlot(
   teacher,
   groupsForLesson,
@@ -442,7 +440,7 @@ function findFreeSlot(
   }
   return slots;
 }
-
+// Обробка імпорту файлу
 function handleFileImport(event) {
   const file = event.target.files[0];
   if (!file) {
@@ -665,7 +663,7 @@ function handleFileImport(event) {
   };
   reader.readAsText(file);
 }
-
+// Функція генерації таблиці
 function generateSchedule() {
   console.log("Generating schedule with:", importedSchedule);
   const table = document.getElementById("scheduleTable");
@@ -687,7 +685,7 @@ function generateSchedule() {
   });
   renderTable(importedSchedule);
 }
-
+// Функція повернення на головну сторінку
 function backToGenerate() {
   const table = document.getElementById("scheduleTable");
   const searchBar = document.querySelector(".search-bar");
@@ -708,7 +706,7 @@ function backToGenerate() {
     (id) => (document.getElementById(id).style.display = "none")
   );
 }
-
+// Функція перевірки на співпадіння
 function checkConflicts() {
   const conflictResults = document.getElementById("conflictResults");
   const conflictResultsContent = document.getElementById(
@@ -784,7 +782,7 @@ function checkConflicts() {
     conflictResults.style.display = "block";
   }
 }
-
+// Функція редагування
 function toggleEditMode() {
   const table = document.getElementById("scheduleTable");
   const cells = table.getElementsByTagName("td");
@@ -808,7 +806,6 @@ function toggleEditMode() {
           type = "",
           link = "";
 
-        // Извлечение текущих данных из ячейки
         if (cell.querySelector(".schedule-entry")) {
           const spans = cell.getElementsByTagName("span");
           if (spans.length >= 3) {
@@ -830,12 +827,10 @@ function toggleEditMode() {
           }
         }
 
-        // Сохранение атрибутов ячейки
         cell.setAttribute("data-day", dayIndex);
         cell.setAttribute("data-pair", pair);
         cell.setAttribute("data-group", group);
 
-        // Создание HTML для редактирования с выпадающим списком
         cell.innerHTML = `
           <div class="schedule-entry">
             <input type="text" value="${subject}" placeholder="Предмет"><br>
@@ -862,12 +857,10 @@ function toggleEditMode() {
       "Завершити редагування";
     isEditMode = true;
   } else {
-    // Выход из режима редактирования
     for (let cell of cells) {
       const inputs = cell.getElementsByTagName("input");
       const select = cell.getElementsByTagName("select")[0];
       if (inputs.length === 3 && select) {
-        // Получение значений из полей
         const [subject, teacher, link] = Array.from(inputs).map(
           (input) => input.value.trim() || ""
         );
@@ -884,7 +877,6 @@ function toggleEditMode() {
         );
 
         if (isEmpty) {
-          // Удаление записи и очистка ячейки, если все поля пустые
           if (scheduleIndex !== -1) {
             importedSchedule.splice(scheduleIndex, 1);
           }
@@ -894,7 +886,6 @@ function toggleEditMode() {
             <span class="schedule-item"></span>
           </div>`;
         } else {
-          // Формирование содержимого ссылки
           const linkContent =
             link && (link.startsWith("http://") || link.startsWith("https://"))
               ? `<a href="${link}" target="_blank" class="schedule-item">Посилання</a>`
@@ -912,7 +903,6 @@ function toggleEditMode() {
                 : `<span class="schedule-item">${link}</span>`
               : "";
 
-          // Обновление или добавление записи в расписание
           const entry = {
             group,
             subject,
@@ -931,7 +921,6 @@ function toggleEditMode() {
             importedSchedule.push(entry);
           }
 
-          // Обновление содержимого ячейки
           cell.innerHTML = `<div class="schedule-entry">
             <span class="schedule-item">${subject}</span>
             <span class="schedule-item">${teacher}</span>
@@ -946,13 +935,12 @@ function toggleEditMode() {
     isEditMode = false;
   }
 }
-
+// Фнкція зберігання післі редагування
 function saveEdit(button) {
   const cell = button.parentElement;
   const inputs = cell.getElementsByTagName("input");
   const select = cell.getElementsByTagName("select")[0];
 
-  // Получение значений из полей
   const [subject, teacher, link] = Array.from(inputs).map(
     (input) => input.value.trim() || ""
   );
@@ -968,7 +956,6 @@ function saveEdit(button) {
   const isEmpty = !subject && !teacher && !type && !link;
 
   if (isEmpty) {
-    // Удаление записи и очистка ячейки, если все поля пустые
     if (scheduleIndex !== -1) {
       importedSchedule.splice(scheduleIndex, 1);
     }
@@ -978,7 +965,6 @@ function saveEdit(button) {
       <span class="schedule-item"></span>
     </div>`;
   } else {
-    // Формирование содержимого ссылки
     const linkContent =
       link && (link.startsWith("http://") || link.startsWith("https://"))
         ? `<a href="${link}" target="_blank" class="schedule-item">Посилання</a>`
@@ -996,7 +982,6 @@ function saveEdit(button) {
           : `<span class="schedule-item">${link}</span>`
         : "";
 
-    // Обновление или добавление записи в расписание
     const entry = {
       group,
       subject,
@@ -1015,7 +1000,6 @@ function saveEdit(button) {
       importedSchedule.push(entry);
     }
 
-    // Обновление содержимого ячейки
     cell.innerHTML = `<div class="schedule-entry">
       <span class="schedule-item">${subject}</span>
       <span class="schedule-item">${teacher}</span>
@@ -1024,6 +1008,7 @@ function saveEdit(button) {
     </div>`;
   }
 }
+// Відображення таблиці розкладу
 function renderTable(generatedSchedule) {
   console.log("Groups:", groups);
   console.log("Imported schedule:", generatedSchedule);
@@ -1087,7 +1072,7 @@ function renderTable(generatedSchedule) {
     }
   });
 }
-
+// Функція пошуку
 function searchTable() {
   const searchText = document
     .getElementById("searchInput")

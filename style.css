@@ -6,12 +6,7 @@
 
 body {
   font-family: "Roboto", sans-serif;
-  background: linear-gradient(
-    135deg,
-    #d1c4e9,
-    #b3e5fc,
-    #b2dfdb
-  ); /* Updated gradient with pastel purple, light blue, and soft teal */
+  background: linear-gradient(135deg, #d1c4e9, #b3e5fc, #b2dfdb);
   min-height: 100vh;
   padding: 20px;
   display: flex;
@@ -212,7 +207,7 @@ td a:hover {
   position: relative;
 }
 
-/* Different colors for each day of the week */
+/* Різні кольори для кожного дня тижня */
 .day-column.day-1 {
   background-color: #67acf1;
 }
@@ -283,7 +278,7 @@ td a:hover {
   border-radius: 4px;
 }
 
-/* Styles for conflict check results */
+/* Стилі для результатів перевірки конфліктів */
 .conflict-results {
   display: none;
   position: fixed;
@@ -378,14 +373,14 @@ td a:hover {
 
 .export-options {
   position: absolute;
-  top: 250px; /* Устанавливаем позицию ниже строки поиска (учитывая margin-top: 150px + высота строки ~100px) */
+  top: 250px;
   left: 50%;
   transform: translateX(-50%);
   background: white;
   padding: 20px;
   border-radius: 8px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  z-index: 1001; /* Высокий z-index для окна экспорта */
+  z-index: 1001;
 }
 
 .export-options .btn {
@@ -447,5 +442,132 @@ select.type-select:focus {
   }
   to {
     opacity: 1;
+  }
+}
+/* Адаптивні стилі для екранів до 768px */
+@media (max-width: 768px) {
+  body {
+    padding: 10px;
+  }
+
+  .container {
+    padding: 15px;
+  }
+
+  h1 {
+    font-size: 2em;
+    margin-bottom: 10px;
+  }
+
+  .btn {
+    padding: 12px 25px;
+    font-size: 1em;
+    width: 100%;
+    max-width: 300px;
+  }
+
+  .button-group {
+    gap: 10px;
+  }
+
+  #searchInput {
+    width: 90%;
+    padding: 8px 12px;
+    font-size: 0.9em;
+  }
+
+  th,
+  td {
+    font-size: 0.7em;
+    padding: 5px;
+  }
+
+  .day-column {
+    min-width: 30px;
+    font-size: 0.7em;
+    writing-mode: horizontal-tb;
+    text-orientation: initial;
+    transform: rotate(-45deg);
+    padding: 10px 2px;
+  }
+
+  .search-results,
+  .conflict-results,
+  .export-options,
+  .import-options {
+    max-width: 95%;
+    top: 60px;
+    padding: 10px;
+    max-height: calc(80vh - 80px);
+  }
+
+  .search-results-header h3,
+  .conflict-results-header h3,
+  .export-options-header h3,
+  .import-options-header h3 {
+    font-size: 1em;
+  }
+
+  #excelOptions input,
+  select.type-select {
+    font-size: 0.9em;
+    padding: 8px;
+  }
+}
+
+/* Адаптивні стилі для екранів до 480px */
+@media (max-width: 480px) {
+  h1 {
+    font-size: 1.5em;
+  }
+
+  .btn {
+    padding: 10px 20px;
+    font-size: 0.9em;
+  }
+
+  #searchInput {
+    width: 100%;
+    font-size: 0.85em;
+  }
+
+  th,
+  td {
+    font-size: 0.65em;
+    padding: 4px;
+  }
+
+  .day-column {
+    min-width: 25px;
+    font-size: 0.65em;
+    padding: 8px 1px;
+  }
+
+  .search-results,
+  .conflict-results,
+  .export-options,
+  .import-options {
+    width: 95%;
+    padding: 8px;
+    top: 50px;
+  }
+
+  .search-results-header h3,
+  .conflict-results-header h3,
+  .export-options-header h3,
+  .import-options-header h3 {
+    font-size: 0.9em;
+  }
+
+  #searchResultsContent p,
+  #conflictResultsContent p {
+    font-size: 0.85em;
+    padding: 8px;
+  }
+
+  #excelOptions input,
+  select.type-select {
+    font-size: 0.85em;
+    padding: 6px;
   }
 }
