@@ -1,9 +1,10 @@
 semester_info,weeks
 semester_info,16
 
-teacher_restrictions,teacher,allowed_pairs,preferred_days
-teacher_restrictions,викл. Лемещук О.І.,3-6,Четвер
-teacher_restrictions,доц. Полторацький М.Ю.,3,Четвер
+teacher_restrictions,teacher,allowed_pairs,preferred_days,priority
+teacher_restrictions,викл. Лемещук О.І.,3,Четвер,1
+teacher_restrictions,доц. Полторацький М.Ю.,3,Четвер,1
+
 
 group_info,group,subject
 group_info,12-411,014 Середня освіта (Фізика)

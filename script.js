@@ -381,21 +381,19 @@ function isGroupSlotFree(group, day, pair, schedule) {
 }
 
 // Перевірка наявності достатньої кількості вільних слотів для викладача
-function hasEnoughFreeSlotsForTeacher(teacher, day, weeklyCount, schedule) {
-  let occupiedSlots = 0;
-  for (let pair = 1; pair <= MAX_PAIRS_PER_DAY; pair++) {
-    if (!isTeacherSlotFree(teacher, day, pair, schedule)) occupiedSlots++;
-  }
-  return occupiedSlots + weeklyCount <= MAX_PAIRS_PER_DAY;
+function hasEnoughFreeSlotsForTeacher(teacher, day, count, schedule) {
+  const occupied = schedule.filter(
+    (entry) => entry.teacher === teacher && entry.day === day
+  ).length;
+  return MAX_PAIRS_PER_DAY - occupied >= count;
 }
 
 // Перевірка наявності достатньої кількості вільних слотів для групи
-function hasEnoughFreeSlotsForGroup(group, day, weeklyCount, schedule) {
-  let occupiedSlots = 0;
-  for (let pair = 1; pair <= MAX_PAIRS_PER_DAY; pair++) {
-    if (!isGroupSlotFree(group, day, pair, schedule)) occupiedSlots++;
-  }
-  return occupiedSlots + weeklyCount <= MAX_PAIRS_PER_DAY;
+function hasEnoughFreeSlotsForGroup(group, day, count, schedule) {
+  const occupied = schedule.filter(
+    (entry) => entry.group === group && entry.day === day
+  ).length;
+  return MAX_PAIRS_PER_DAY - occupied >= count;
 }
 // Генерація розкладу
 function findFreeSlot(
@@ -406,10 +404,10 @@ function findFreeSlot(
   allDays,
   weeklyCount,
   schedule,
-  mustBeSequential = false
+  mustBeSequential = false,
+  occupiedSlots = []
 ) {
   let availableDays = [...preferredDays];
-  if (availableDays.length === 0) availableDays = [...allDays];
   let slots = [];
   let attempts = 0;
   const maxAttempts = 100;
@@ -417,13 +415,23 @@ function findFreeSlot(
   while (slots.length < weeklyCount && attempts < maxAttempts) {
     attempts++;
     if (availableDays.length === 0) {
-      console.warn(`Немає доступних днів для викладача ${teacher}`);
-      return null;
+      console.warn(
+        `Немає доступних днів для викладача ${teacher} у preferredDays. Пошук зупинено.`
+      );
+      return null; // Зупиняємо пошук, якщо немає слотів у preferredDays
     }
 
     const dayIndex = Math.floor(Math.random() * availableDays.length);
     const day = availableDays[dayIndex];
-    let availablePairs = [...allowedPairs];
+    let availablePairs = [...allowedPairs].filter(
+      (pair) =>
+        !occupiedSlots.some((slot) => slot.day === day && slot.pair === pair)
+    );
+
+    if (availablePairs.length === 0) {
+      availableDays.splice(dayIndex, 1);
+      continue;
+    }
 
     if (
       !hasEnoughFreeSlotsForTeacher(teacher, day, weeklyCount, schedule) ||
@@ -436,60 +444,58 @@ function findFreeSlot(
     }
 
     if (mustBeSequential && weeklyCount > 1) {
-      let startPairIndex = Math.floor(
-        Math.random() * (availablePairs.length - weeklyCount + 1)
-      );
-      let startPair = availablePairs[startPairIndex];
-      let sequentialPairs = [];
-      for (let j = 0; j < weeklyCount; j++) {
-        const pair = startPair + j;
-        if (pair > MAX_PAIRS_PER_DAY || !allowedPairs.includes(pair)) {
-          sequentialPairs = [];
+      for (let startPair of availablePairs) {
+        let sequentialPairs = [];
+        for (let j = 0; j < weeklyCount; j++) {
+          const pair = startPair + j;
+          if (pair > MAX_PAIRS_PER_DAY || !allowedPairs.includes(pair)) {
+            sequentialPairs = [];
+            break;
+          }
+          if (
+            !occupiedSlots.some(
+              (slot) => slot.day === day && slot.pair === pair
+            ) &&
+            isTeacherSlotFree(teacher, day, pair, schedule) &&
+            groupsForLesson.every((group) =>
+              isGroupSlotFree(group, day, pair, schedule)
+            )
+          ) {
+            sequentialPairs.push({ day, pair });
+          } else {
+            sequentialPairs = [];
+            break;
+          }
+        }
+        if (sequentialPairs.length === weeklyCount) {
+          slots.push(...sequentialPairs);
           break;
         }
+      }
+      if (slots.length === 0) availableDays.splice(dayIndex, 1);
+    } else {
+      for (let pair of availablePairs) {
         if (
           isTeacherSlotFree(teacher, day, pair, schedule) &&
           groupsForLesson.every((group) =>
             isGroupSlotFree(group, day, pair, schedule)
           )
         ) {
-          sequentialPairs.push({ day, pair });
-        } else {
-          sequentialPairs = [];
+          slots.push({ day, pair });
           break;
         }
       }
-      if (sequentialPairs.length === weeklyCount) {
-        slots.push(...sequentialPairs);
-        break;
-      } else {
-        availableDays.splice(dayIndex, 1);
-        continue;
-      }
-    } else {
-      const pairIndex = Math.floor(Math.random() * availablePairs.length);
-      const pair = availablePairs[pairIndex];
-      if (
-        isTeacherSlotFree(teacher, day, pair, schedule) &&
-        groupsForLesson.every((group) =>
-          isGroupSlotFree(group, day, pair, schedule)
-        )
-      ) {
-        slots.push({ day, pair });
-        availablePairs.splice(pairIndex, 1);
-      } else {
-        availablePairs.splice(pairIndex, 1);
-        if (availablePairs.length === 0) availableDays.splice(dayIndex, 1);
-        continue;
-      }
+      if (slots.length === 0) availableDays.splice(dayIndex, 1);
     }
+
     if (slots.length === weeklyCount) break;
-    availableDays.splice(dayIndex, 1);
   }
 
   if (slots.length < weeklyCount) {
-    console.warn(`Не знайдено достатньо слотів для викладача ${teacher}`);
-    return null;
+    console.warn(
+      `Не знайдено достатньо слотів для викладача ${teacher}. Знайдено: ${slots.length}`
+    );
+    return slots.length > 0 ? slots : null;
   }
   return slots;
 }
@@ -497,7 +503,7 @@ function findFreeSlot(
 function handleFileImport(event) {
   const file = event.target.files[0];
   if (!file) {
-    alert("Файл не вибрано!");
+    showCustomAlert("Файл не вибрано!");
     return;
   }
 
@@ -513,7 +519,7 @@ function handleFileImport(event) {
           .map((row) => row.trim())
           .filter((row) => row);
         if (rows.length === 0) {
-          alert("CSV-файл порожній!");
+          showCustomAlert("CSV-файл порожній!");
           return;
         }
 
@@ -546,7 +552,7 @@ function handleFileImport(event) {
             }
           } else if (
             headers[0] === "teacher_restrictions" &&
-            headers.length >= 4
+            headers.length >= 5 // Очікуємо 5 стовпців: префікс, викладач, дозволені_пари, бажані_дні, пріоритет
           ) {
             i++;
             while (
@@ -554,9 +560,10 @@ function handleFileImport(event) {
               rows[i].startsWith("teacher_restrictions")
             ) {
               const fields = rows[i].split(",").map((item) => item.trim());
-              if (fields.length >= 4) {
-                const [, teacher, allowedPairs, ...preferredDays] = fields;
-                if (teacher && allowedPairs) {
+              if (fields.length >= 5) {
+                const [, teacher, allowedPairs, preferredDays, priority] =
+                  fields;
+                if (teacher && allowedPairs && preferredDays && priority) {
                   let pairs = allowedPairs.includes("-")
                     ? allowedPairs
                         .split("-")
@@ -566,20 +573,29 @@ function handleFileImport(event) {
                         .split(" ")
                         .map(Number)
                         .filter((p) => !isNaN(p) && p >= 1 && p <= 6);
+                  const priorityNum = parseInt(priority);
                   const validPreferredDays = preferredDays
-                    .join(",")
-                    .split(",")
+                    .split(" ")
                     .map((day) => day.trim())
                     .filter((day) => daysOfWeek.includes(day))
                     .map((day) => daysOfWeek.indexOf(day));
-                  if (pairs.length > 0)
+                  if (
+                    pairs.length > 0 &&
+                    !isNaN(priorityNum) &&
+                    priorityNum >= 1 &&
+                    priorityNum <= 10
+                  ) {
                     teacherRestrictions.push({
                       teacher,
                       allowedPairs: pairs,
                       preferredDays: validPreferredDays,
+                      priority: priorityNum,
                     });
-                  else
-                    console.warn(`Немає валідних пар для викладача ${teacher}`);
+                  } else {
+                    console.warn(
+                      `Невалідний пріоритет (${priority}) або пари для викладача ${teacher}`
+                    );
+                  }
                 }
               }
               i++;
@@ -646,17 +662,30 @@ function handleFileImport(event) {
           } else i++;
         }
 
-        // Перевірка конфліктів у teacher_restrictions
-        const conflicts = checkTeacherConflicts(teacherRestrictions);
-        if (conflicts.length > 0) {
+        // Сортуємо teacherRestrictions за пріоритетом (1 — найвищий)
+        teacherRestrictions.sort((a, b) => a.priority - b.priority);
+
+        // Перевірка конфліктів із урахуванням пріоритету
+        const conflicts =
+          checkTeacherConflictsWithPriority(teacherRestrictions);
+        if (conflicts) {
           console.error(
             "Знайдено конфлікти у teacher_restrictions:",
             conflicts
           );
-          alert(
-            "Помилка: виявлено конфлікти у розкладі викладачів. Перевірте teacher_restrictions. Деталі в консолі."
-          );
-          return; // Зупиняємо генерацію
+          let conflictMessage =
+            "Помилка: виявлено конфлікти у розкладі викладачів:\n";
+          conflicts.forEach((conflict) => {
+            conflictMessage += `Конфлікт між ${conflict.teacher1} і ${
+              conflict.teacher2
+            } на парах ${conflict.conflictingPairs.join(
+              ", "
+            )} у ${conflict.conflictingDays.join(", ")}.\n`;
+          });
+          conflictMessage +=
+            "\nРекомендація: спробуйте змінити дозволені пари (allowed_pairs) або бажані дні (preferred_days) для одного з викладачів,та обрати пріоритет щоб уникнути конфлікту.";
+          showCustomAlert(conflictMessage);
+          return;
         }
 
         const lessonsByKey = {};
@@ -682,16 +711,53 @@ function handleFileImport(event) {
           const allDays = [0, 1, 2, 3, 4];
           const groupsForLesson = lessons.map((lesson) => lesson.group);
 
-          const slots = findFreeSlot(
-            firstLesson.teacher,
-            groupsForLesson,
-            allowedPairs,
-            preferredDays,
-            allDays,
-            weeklyCountNum,
-            importedSchedule,
-            lessons.every((lesson) => lesson.type === "лекція")
-          );
+          let slots;
+          if (teacherRestriction && teacherRestriction.priority === 1) {
+            // Для пріоритету 1 беремо першу пару з allowedPairs і перший день з preferredDays
+            const fixedDay = preferredDays[0];
+            const fixedPair = allowedPairs[0];
+            slots = [{ day: fixedDay, pair: fixedPair }];
+            const isConflict = importedSchedule.some(
+              (entry) =>
+                entry.day === fixedDay &&
+                entry.pair === fixedPair &&
+                groupsForLesson.includes(entry.group)
+            );
+            if (isConflict) {
+              console.error(
+                `Конфлікт для ${firstLesson.teacher} на день ${daysOfWeek[fixedDay]}, пара ${fixedPair}`
+              );
+              showCustomAlert(
+                `Конфлікт: ${firstLesson.teacher} не може бути призначений на ${daysOfWeek[fixedDay]}, пара ${fixedPair}.`
+              );
+              return;
+            }
+          } else {
+            // Для нижчих пріоритетів шукаємо вільні слоти в межах preferredDays, уникаючи зайнятих пар
+            const occupiedSlots = importedSchedule
+              .filter(
+                (entry) =>
+                  preferredDays.includes(entry.day) &&
+                  groupsForLesson.includes(entry.group)
+              )
+              .map((entry) => ({ day: entry.day, pair: entry.pair }));
+            slots = findFreeSlot(
+              firstLesson.teacher,
+              groupsForLesson,
+              allowedPairs,
+              preferredDays,
+              allDays,
+              weeklyCountNum,
+              importedSchedule,
+              lessons.every((lesson) => lesson.type === "лекція"),
+              occupiedSlots
+            );
+            if (!slots && preferredDays.length > 0) {
+              console.warn(
+                `Не вдалося знайти слоти для ${firstLesson.teacher} у preferredDays. Заняття не заплановано.`
+              );
+            }
+          }
           if (slots)
             slots.forEach((slot) =>
               lessons.forEach((lesson) =>
@@ -705,9 +771,8 @@ function handleFileImport(event) {
         }
 
         if (importedSchedule.length === 0)
-          alert("Не знайдено валідних даних про заняття у файлі.");
+          showCustomAlert("Не знайдено валідних даних про заняття у файлі.");
       } else if (file.name.endsWith(".json")) {
-        // Обробка JSON (залишається без змін, крім конфліктів)
         console.log("Обробка JSON-файлу...");
         let importedData = JSON.parse(text);
         console.log("Розпарсені дані:", importedData); // Дебаг
@@ -766,7 +831,7 @@ function handleFileImport(event) {
 
         if (importedSchedule.length === 0) {
           console.warn("importedSchedule порожній після обробки.");
-          alert(
+          showCustomAlert(
             "Не знайдено валідних даних про заняття у файлі. Перевірте консоль для деталей."
           );
         } else {
@@ -795,18 +860,38 @@ function handleFileImport(event) {
       event.target.value = "";
     } catch (error) {
       console.error("Помилка при обробці файлу:", error);
-      alert("Помилка при обробці файлу: " + error.message);
+      showCustomAlert("Помилка при обробці файлу: " + error.message);
     }
   };
   reader.onerror = function (e) {
     console.error("Помилка читання файлу:", e);
-    alert("Не вдалося прочитати файл: " + e.message);
+    showCustomAlert("Не вдалося прочитати файл: " + e.message);
   };
   reader.readAsText(file);
 }
 
-// Нова функція для перевірки конфліктів
-function checkTeacherConflicts(restrictions) {
+// Функція для відображення кастомного алерту
+function showCustomAlert(message) {
+  const alertBox = document.getElementById("customAlert");
+  const alertMessage = document.getElementById("alertMessage");
+  const closeButton = document.getElementById("closeAlert");
+
+  alertMessage.textContent = message;
+  alertBox.style.display = "flex";
+
+  closeButton.onclick = function () {
+    alertBox.style.display = "none";
+  };
+
+  // Закриття алерту при натисканні поза вікном
+  window.onclick = function (event) {
+    if (event.target === alertBox) {
+      alertBox.style.display = "none";
+    }
+  };
+}
+// Функція для перевірки конфліктів
+function checkTeacherConflictsWithPriority(restrictions) {
   const conflicts = [];
   for (let i = 0; i < restrictions.length; i++) {
     for (let j = i + 1; j < restrictions.length; j++) {
@@ -820,17 +905,23 @@ function checkTeacherConflicts(restrictions) {
           r2.preferredDays.includes(day)
         );
         if (commonDays.length > 0) {
-          conflicts.push({
-            teacher1: r1.teacher,
-            teacher2: r2.teacher,
-            conflictingPairs: commonPairs,
-            conflictingDays: commonDays.map((day) => daysOfWeek[day]),
-          });
+          if (r1.priority === 1 && r2.priority > 1) {
+            continue;
+          } else if (r2.priority === 1 && r1.priority > 1) {
+            continue;
+          } else if (r1.priority === r2.priority) {
+            conflicts.push({
+              teacher1: r1.teacher,
+              teacher2: r2.teacher,
+              conflictingPairs: commonPairs,
+              conflictingDays: commonDays.map((day) => daysOfWeek[day]),
+            });
+          }
         }
       }
     }
   }
-  return conflicts;
+  return conflicts.length > 0 ? conflicts : null;
 }
 // Функція генерації таблиці
 function generateSchedule() {
