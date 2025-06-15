@@ -3,7 +3,8 @@ semester_info,16
 
 teacher_restrictions,teacher,allowed_pairs,preferred_days,priority
 teacher_restrictions,викл. Лемещук О.І.,3,Четвер,1
-teacher_restrictions,доц. Полторацький М.Ю.,3,Четвер,1
+teacher_restrictions,доц. Полторацький М.Ю.,1-6,Четвер,2
+teacher_restrictions,проф. Бабічев С.А.,1-6,Середа
 
 
 group_info,group,subject
