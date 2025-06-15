@@ -507,7 +507,6 @@ function handleFileImport(event) {
     console.log("Зчитаний вміст файлу:", text); // Дебаг
     try {
       if (file.name.endsWith(".csv")) {
-        // Обробка CSV (ваша існуюча логіка)
         console.log("Обробка CSV-файлу...");
         const rows = text
           .split("\n")
@@ -647,6 +646,19 @@ function handleFileImport(event) {
           } else i++;
         }
 
+        // Перевірка конфліктів у teacher_restrictions
+        const conflicts = checkTeacherConflicts(teacherRestrictions);
+        if (conflicts.length > 0) {
+          console.error(
+            "Знайдено конфлікти у teacher_restrictions:",
+            conflicts
+          );
+          alert(
+            "Помилка: виявлено конфлікти у розкладі викладачів. Перевірте teacher_restrictions. Деталі в консолі."
+          );
+          return; // Зупиняємо генерацію
+        }
+
         const lessonsByKey = {};
         pendingLessons.forEach((lesson) =>
           (lessonsByKey[`${lesson.subject}|${lesson.teacher}|${lesson.type}`] =
@@ -695,7 +707,7 @@ function handleFileImport(event) {
         if (importedSchedule.length === 0)
           alert("Не знайдено валідних даних про заняття у файлі.");
       } else if (file.name.endsWith(".json")) {
-        // Обробка JSON
+        // Обробка JSON (залишається без змін, крім конфліктів)
         console.log("Обробка JSON-файлу...");
         let importedData = JSON.parse(text);
         console.log("Розпарсені дані:", importedData); // Дебаг
@@ -706,12 +718,10 @@ function handleFileImport(event) {
           );
         }
 
-        // Очищаємо поточний розклад
         importedSchedule = [];
         groups = [];
         teacherRestrictions = [];
 
-        // Відновлюємо groups із JSON
         if (importedData.groups && Array.isArray(importedData.groups)) {
           groups = importedData.groups.map((group) => ({
             name: group.name || "",
@@ -730,7 +740,6 @@ function handleFileImport(event) {
           }));
         }
 
-        // Заповнюємо importedSchedule з JSON
         importedData.schedule.forEach((entry, index) => {
           console.log(`Обробка запису ${index + 1}:`, entry); // Дебаг
           const dayIndex = daysOfWeek.indexOf(entry.day);
@@ -794,6 +803,34 @@ function handleFileImport(event) {
     alert("Не вдалося прочитати файл: " + e.message);
   };
   reader.readAsText(file);
+}
+
+// Нова функція для перевірки конфліктів
+function checkTeacherConflicts(restrictions) {
+  const conflicts = [];
+  for (let i = 0; i < restrictions.length; i++) {
+    for (let j = i + 1; j < restrictions.length; j++) {
+      const r1 = restrictions[i];
+      const r2 = restrictions[j];
+      const commonPairs = r1.allowedPairs.filter((pair) =>
+        r2.allowedPairs.includes(pair)
+      );
+      if (commonPairs.length > 0) {
+        const commonDays = r1.preferredDays.filter((day) =>
+          r2.preferredDays.includes(day)
+        );
+        if (commonDays.length > 0) {
+          conflicts.push({
+            teacher1: r1.teacher,
+            teacher2: r2.teacher,
+            conflictingPairs: commonPairs,
+            conflictingDays: commonDays.map((day) => daysOfWeek[day]),
+          });
+        }
+      }
+    }
+  }
+  return conflicts;
 }
 // Функція генерації таблиці
 function generateSchedule() {
