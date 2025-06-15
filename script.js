@@ -156,7 +156,7 @@ function exportToJSON(scheduleTitle, approvalName) {
     approvalName: approvalName || "",
     groups: groups.map((group) => ({
       name: group.name,
-      subject: group.subject, // Зберігаємо предмети груп
+      subject: group.subject,
     })),
     schedule: importedSchedule.map((entry) => ({
       group: entry.group,
@@ -164,7 +164,7 @@ function exportToJSON(scheduleTitle, approvalName) {
       teacher: entry.teacher,
       type: entry.type,
       link: entry.link,
-      day: daysOfWeek[entry.day], // Зберігаємо як назву дня
+      day: daysOfWeek[entry.day],
       pair: entry.pair,
       weeklyCount: entry.weeklyCount,
       duration: entry.duration,
@@ -418,7 +418,7 @@ function findFreeSlot(
       console.warn(
         `Немає доступних днів для викладача ${teacher} у preferredDays. Пошук зупинено.`
       );
-      return null; // Зупиняємо пошук, якщо немає слотів у preferredDays
+      return null;
     }
 
     const dayIndex = Math.floor(Math.random() * availableDays.length);
@@ -510,7 +510,7 @@ function handleFileImport(event) {
   const reader = new FileReader();
   reader.onload = function (e) {
     const text = e.target.result;
-    console.log("Зчитаний вміст файлу:", text); // Дебаг
+    console.log("Зчитаний вміст файлу:", text);
     try {
       if (file.name.endsWith(".csv")) {
         console.log("Обробка CSV-файлу...");
@@ -552,7 +552,7 @@ function handleFileImport(event) {
             }
           } else if (
             headers[0] === "teacher_restrictions" &&
-            headers.length >= 5 // Очікуємо 5 стовпців: префікс, викладач, дозволені_пари, бажані_дні, пріоритет
+            headers.length >= 5
           ) {
             i++;
             while (
@@ -775,7 +775,7 @@ function handleFileImport(event) {
       } else if (file.name.endsWith(".json")) {
         console.log("Обробка JSON-файлу...");
         let importedData = JSON.parse(text);
-        console.log("Розпарсені дані:", importedData); // Дебаг
+        console.log("Розпарсені дані:", importedData);
 
         if (!importedData.scheduleTitle || !importedData.schedule) {
           throw new Error(
@@ -806,7 +806,7 @@ function handleFileImport(event) {
         }
 
         importedData.schedule.forEach((entry, index) => {
-          console.log(`Обробка запису ${index + 1}:`, entry); // Дебаг
+          console.log(`Обробка запису ${index + 1}:`, entry);
           const dayIndex = daysOfWeek.indexOf(entry.day);
           if (dayIndex === -1) {
             console.warn(
@@ -827,7 +827,7 @@ function handleFileImport(event) {
           }
         });
 
-        console.log("Імпортований розклад:", importedSchedule); // Дебаг
+        console.log("Імпортований розклад:", importedSchedule);
 
         if (importedSchedule.length === 0) {
           console.warn("importedSchedule порожній після обробки.");
@@ -839,7 +839,7 @@ function handleFileImport(event) {
             "Розклад успішно імпортований, кількість записів:",
             importedSchedule.length
           );
-          renderTable(importedSchedule); // Оновлюємо таблицю
+          renderTable(importedSchedule);
           document.getElementById("scheduleTable").style.display = "table";
           document.querySelector(".search-bar").style.display = "block";
           ["generateButton", "importButton"].forEach((id) => {
